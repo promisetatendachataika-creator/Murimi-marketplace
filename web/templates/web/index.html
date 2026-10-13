@@ -1,0 +1,244 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Murimi Market: fresh produce from Zimbabwe's farms</title>
+  <meta name="description" content="Buy straight from verified Zimbabwean farmers, with today's market price beside every listing.">
+  <meta name="theme-color" content="#0f2a16">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  <script>
+    /* Set the colour theme before the page paints, so it never flashes. */
+    try { var t = localStorage.getItem("murimi-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#browse">Skip to produce</a>
+
+  <!-- ===================== Top bar ===================== -->
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Murimi Market home">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c4 4 6 8 6 13s-2 9-6 13c-4-4-6-8-6-13s2-9 6-13Z" fill="#e8b931"/><path d="M16 7v21M16 13l-3.5-2.5M16 13l3.5-2.5M16 18l-3.5-2.5M16 18l3.5-2.5M16 23l-3.5-2.5M16 23l3.5-2.5" stroke="#0f2a16" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Murimi <b>Market</b></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#browse">Buy produce</a>
+      <a href="#requests">Buyer requests</a>
+      <a href="#how">How it works</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to dark mode" title="Light or dark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7 1.4-1.4M4.9 19.1l1.4-1.4m0-11.4L4.9 4.9m14.2 14.2-1.4-1.4M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+      <button class="btn btn-ghost-light" type="button" data-open="loginDialog">Log in</button>
+      <button class="btn btn-maize" type="button" data-open="sellDialog">Sell produce</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== Hero ===================== -->
+    <section class="hero" aria-labelledby="heroTitle">
+      <div class="hero-veil" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <h1 id="heroTitle" class="hero-word" aria-label="Murimi">
+            <span class="hero-word-a" aria-hidden="true">MURIMI</span>
+            <span class="hero-word-b" aria-hidden="true">MURIMI</span>
+          </h1>
+          <p class="hero-lede">Fresh produce straight from Zimbabwe's farms. Every listing shows today's market price, so farmers and buyers both know what's fair.</p>
+
+          <form class="hero-search" id="heroSearch" role="search">
+            <label>
+              <span class="sr-only">Crop</span>
+              <select name="crop" id="heroCrop"><option value="">Any crop</option></select>
+            </label>
+            <label>
+              <span class="sr-only">Province</span>
+              <select name="province" id="heroProvince"><option value="">All of Zimbabwe</option></select>
+            </label>
+            <button class="btn btn-maize" type="submit">Find produce</button>
+          </form>
+
+          <ul class="hero-proof">
+            <li><strong id="statListings">0</strong> listings this week</li>
+            <li><strong id="statFarmers">0</strong> verified farmers</li>
+            <li><strong id="statProvinces">0</strong> provinces</li>
+          </ul>
+        </div>
+
+        <figure class="hero-map">
+          <div class="map-frame" id="mapFrame">
+            <img src="{% static 'web/img/zimbabwe-map.webp' %}" width="620" height="714"
+                 alt="Map of Zimbabwe showing Harare, Bulawayo, Gweru, Masvingo and other towns">
+            <!-- Province pins are added here by app.js -->
+          </div>
+          <figcaption>Tap a province to see what's harvested there.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ===================== Browse ===================== -->
+    <section class="section" id="browse" aria-labelledby="browseTitle">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="browseTitle">Produce for sale</h2>
+          <p class="demo-note" role="note">You're seeing sample listings. Real farmers' produce appears here once the listings API is built.</p>
+        </div>
+
+        <form class="filters" id="filters" aria-label="Filter produce">
+          <div class="crop-chips" id="cropChips" role="group" aria-label="Crop"></div>
+          <div class="filter-row">
+            <label class="field">
+              <span>Province</span>
+              <select name="province" id="fProvince"><option value="">All provinces</option></select>
+            </label>
+            <label class="field">
+              <span>Max price (US$)</span>
+              <input name="max_price" id="fMaxPrice" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Any">
+            </label>
+            <label class="field">
+              <span>Sort</span>
+              <select name="sort" id="fSort">
+                <option value="newest">Newest first</option>
+                <option value="price_asc">Lowest price</option>
+                <option value="price_desc">Highest price</option>
+                <option value="fair">Best value vs market</option>
+              </select>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="sell_today" id="fSellToday">
+              <span>Sell today only</span>
+            </label>
+          </div>
+        </form>
+
+        <p class="result-count" id="resultCount" aria-live="polite"></p>
+        <div class="listing-grid" id="listingGrid"></div>
+      </div>
+    </section>
+
+    <!-- ===================== Buyer requests ===================== -->
+    <section class="section section-tint" id="requests" aria-labelledby="requestsTitle">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="requestsTitle">Buyers looking for produce</h2>
+          <p>Supermarkets, schools and traders post what they need. Too big for one farm? Several farmers in the same area can each supply part of the order.</p>
+        </div>
+        <div class="request-list" id="requestList"></div>
+      </div>
+    </section>
+
+    <!-- ===================== How it works ===================== -->
+    <section class="section" id="how" aria-labelledby="howTitle">
+      <div class="wrap how">
+        <div class="section-head">
+          <h2 id="howTitle">How it works</h2>
+          <div class="tabs" role="tablist" aria-label="Who are you?">
+            <button role="tab" id="tabFarmer" aria-selected="true" aria-controls="howFarmer" type="button">I'm a farmer</button>
+            <button role="tab" id="tabBuyer" aria-selected="false" aria-controls="howBuyer" type="button" tabindex="-1">I'm a buyer</button>
+          </div>
+        </div>
+        <ol class="steps" id="howFarmer" role="tabpanel" aria-labelledby="tabFarmer">
+          <li><h3>List your harvest</h3><p>Crop, quantity, price and a photo. We show you today's market price while you type, so you can price it fairly.</p></li>
+          <li><h3>Get offers</h3><p>Buyers send offers. You accept or decline. Your phone number is only shared after you accept.</p></li>
+          <li><h3>Deliver and get rated</h3><p>Mark the order done. Good ratings and a Murimi Verified badge bring you repeat buyers.</p></li>
+        </ol>
+        <ol class="steps" id="howBuyer" role="tabpanel" aria-labelledby="tabBuyer" hidden>
+          <li><h3>Find produce or post a request</h3><p>Search by crop and province, or tell farmers what you need and when.</p></li>
+          <li><h3>Send an offer</h3><p>Choose a quantity. The fair-price tag shows how the asking price compares with the market.</p></li>
+          <li><h3>Collect, then rate</h3><p>Once the farmer accepts, you get their WhatsApp number to arrange pickup or delivery.</p></li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div>
+        <p class="brand brand-footer"><span>Murimi <b>Market</b></span></p>
+        <p>Part of Murimi Intelligent Hub. Connecting Zimbabwe's farmers with buyers at fair prices.</p>
+      </div>
+      <div>
+        <p>Questions? Chat to us on WhatsApp</p>
+        <a class="btn btn-whatsapp" href="https://wa.me/263782573320" rel="noopener">+263 78 257 3320</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===================== Dialogs ===================== -->
+  <dialog class="sheet" id="offerDialog" aria-labelledby="offerTitle">
+    <form method="dialog" class="sheet-body" id="offerForm" novalidate>
+      <header class="sheet-head">
+        <h2 id="offerTitle">Send an offer</h2>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close">✕</button>
+      </header>
+      <div class="offer-summary" id="offerSummary"></div>
+      <label class="field">
+        <span>How much do you want?</span>
+        <div class="qty-row">
+          <input name="quantity" id="offerQty" type="number" min="1" step="1" inputmode="numeric" required>
+          <span class="unit" id="offerUnit"></span>
+        </div>
+        <small class="hint" id="offerQtyHint"></small>
+      </label>
+      <fieldset class="field">
+        <legend>Pickup or delivery</legend>
+        <div class="seg" id="offerDelivery"></div>
+      </fieldset>
+      <label class="field">
+        <span>Message to the farmer (optional)</span>
+        <textarea name="message" rows="2" maxlength="300" placeholder="For example: I can collect on Friday morning."></textarea>
+      </label>
+      <p class="total" id="offerTotal"></p>
+      <p class="form-error" id="offerError" role="alert"></p>
+      <button class="btn btn-green btn-block" value="send" type="submit">Send offer</button>
+      <p class="fine">Nothing is paid now. The farmer's number is shared after they accept.</p>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="sellDialog" aria-labelledby="sellTitle">
+    <form method="dialog" class="sheet-body" id="sellForm" novalidate>
+      <header class="sheet-head">
+        <h2 id="sellTitle">List your produce</h2>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close">✕</button>
+      </header>
+      <div class="grid-2">
+        <label class="field"><span>Crop</span><select name="crop" id="sellCrop" required></select></label>
+        <label class="field"><span>Variety or grade</span><input name="variety" maxlength="60" placeholder="e.g. Roma, grade A"></label>
+        <label class="field"><span>Quantity</span><input name="quantity" type="number" min="1" step="1" inputmode="numeric" required></label>
+        <label class="field"><span>Unit</span><select name="unit" id="sellUnit" required></select></label>
+        <label class="field"><span>Price per unit (US$)</span><input name="price" id="sellPrice" type="number" min="0.1" step="0.1" inputmode="decimal" required></label>
+        <label class="field"><span>Available from</span><input name="available" type="date" required></label>
+        <label class="field"><span>Province</span><select name="province" id="sellProvince" required></select></label>
+        <label class="field"><span>District or area</span><input name="district" maxlength="60" placeholder="e.g. Murehwa" required></label>
+      </div>
+      <div class="price-check" id="sellPriceCheck" aria-live="polite"></div>
+      <label class="check"><input type="checkbox" name="sell_today"><span>Must sell today (perishable, lower price)</span></label>
+      <p class="form-error" id="sellError" role="alert"></p>
+      <button class="btn btn-green btn-block" value="send" type="submit">Publish listing</button>
+      <p class="fine">Demo only for now: the listing isn't saved until we build the listings API.</p>
+    </form>
+  </dialog>
+
+  <dialog class="sheet sheet-small" id="loginDialog" aria-labelledby="loginTitle">
+    <form method="dialog" class="sheet-body">
+      <header class="sheet-head">
+        <h2 id="loginTitle">Log in</h2>
+        <button class="icon-btn" value="cancel" aria-label="Close">✕</button>
+      </header>
+      <p>Log-in with your WhatsApp number or username comes in the Users lesson. It will use the same account rules as Murimi Intelligent Hub.</p>
+      <button class="btn btn-green btn-block" value="cancel">Got it</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Order matters: data first, then the "waiter" that fetches it, then the page logic. -->
+  <script src="{% static 'web/mock.js' %}" defer></script>
+  <script src="{% static 'web/api.js' %}" defer></script>
+  <script src="{% static 'web/app.js' %}" defer></script>
+</body>
+</html>

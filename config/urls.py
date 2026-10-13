@@ -7,9 +7,10 @@ No match -> Django answers 404 "Not Found".
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),   # staff back office
-    # Lesson 2 adds: path("api/", include("core.urls")),
+    path("", include("web.urls")),     # the marketplace page at /
+    # Later: path("api/", include("listings.urls")), ...
 ]

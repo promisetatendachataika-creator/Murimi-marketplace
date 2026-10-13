@@ -67,7 +67,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",      # "who is logged in" memory, stored in the DB
     "django.contrib.messages",      # one-time notices (used by the admin)
     "django.contrib.staticfiles",   # CSS / JS / images for the admin
-    # Our own apps get added here, one per job (Lesson 2 onwards).
+    # Our own apps, one per job:
+    "web",                          # serves the marketplace page
 ]
 
 # --- Middleware: checks every request walks through, in order -----------------
