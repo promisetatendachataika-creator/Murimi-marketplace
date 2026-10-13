@@ -1,0 +1,27 @@
+# Secrets - never commit
+.env
+
+# The private Python box - rebuilt by start-windows.bat
+.venv/
+
+# The local database - it holds data, not code
+db.sqlite3
+db.sqlite3-journal
+
+# Uploaded files (photos come in Lesson 7)
+media/
+private_uploads/
+
+# Python leftovers
+__pycache__/
+*.pyc
+
+# Backups we make before changing files
+*.bak
+backups/
+
+# Editors and Windows
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
