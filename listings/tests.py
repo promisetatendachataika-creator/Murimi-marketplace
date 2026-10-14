@@ -104,7 +104,7 @@ class MarketTests(ListingTestsBase):
     def test_one_market_page_costs_a_fixed_number_of_queries(self):
         for _ in range(10):
             make_listing(self.farmer)
-        with self.assertNumQueries(4):                   # count, rows+farmer, photos, prices: not one per card
+        with self.assertNumQueries(6):   # count, rows+farmer, photos, prices, completed orders, ratings: not one per card
             Browser().get("/api/listings/")
 
     def test_no_phone_numbers_in_listings(self):

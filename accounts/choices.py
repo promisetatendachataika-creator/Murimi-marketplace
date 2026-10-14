@@ -49,6 +49,10 @@ def units_for(product):
     return PRODUCT_UNITS.get(product, CROP_UNITS)
 
 
+# Buyers that are businesses (their full name is shown, e.g. "FreshMart").
+BUSINESS_CHOICES = [("Supermarket", "Supermarket"), ("Restaurant", "Restaurant"), ("Hotel", "Hotel"),
+                    ("School", "School"), ("Traders", "Traders"), ("Shop", "Shop"), ("Other", "Other business")]
+
 DELIVERY_CHOICES = [("pickup", "Buyer collects"), ("delivery", "Farmer delivers"), ("both", "Collect or delivery")]
 
 # A listing may go up at most this many days before it's ready ("coming soon").

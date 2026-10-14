@@ -17,7 +17,7 @@ class MarketplacePageTests(TestCase):
     def test_page_files_are_linked(self):
         """The page links its CSS and JavaScript from /static/web/."""
         response = self.client.get("/")
-        for name in ("app.css", "mock.js", "api.js", "app.js"):
+        for name in ("app.css", "api.js", "app.js"):
             self.assertContains(response, f"/static/web/{name}?v=")   # version number stops stale copies
 
     def test_crop_photos_are_served(self):

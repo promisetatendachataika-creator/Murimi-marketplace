@@ -180,4 +180,23 @@ Full notes: `docs/lessons/03-first-endpoint.md`.
 - Bug found by a test and fixed: products with no market price (tobacco, cotton) caused one extra database query per card.
 - New requirement: Pillow (photos). Tests: 66.
 
-**Next:** Job 5: Offers and orders on the server (accept with the "last crate" protection, contact reveal, ratings), then Job 6: buyer requests.
+## Job 5 + 6: Offers, orders and buyer requests, real backend (14 Oct 2026)
+- New app `orders`: **Order** table (one table for both kinds: an offer on a listing, sent by the buyer; or a supply offer on a buyer request, sent by the farmer) and **Rating** table (1 to 5 stars, once per side, only after "completed").
+  - Product, unit and price are **copied from the listing** when the offer is sent, so the browser can't choose the price and a later price change never changes a deal.
+  - Status rules on the server: accept/decline = whoever received the offer; cancel = whoever sent it; complete = either side.
+  - **"Last crate" protection:** accept runs in `transaction.atomic()` and locks the order and the listing row (`select_for_update`), then lowers quantity left. Accepting more than is left is refused with a friendly message.
+  - **Contact reveal:** the other side's WhatsApp number (and full name) only after "accepted".
+  - Database checks: quantity and price above 0, no order with yourself, an order belongs to a listing OR a request (never both), one rating per side, stars 1 to 5.
+  - One waiting offer per buyer per listing.
+- New app `buyer_requests`: **BuyerRequest** table. "Filled" and "suppliers" are worked out from accepted supply offers (never stored, so they can't drift). Accepting a supply offer locks the request and refuses more than is still needed.
+- Endpoints: `POST /api/listings/<id>/offers/`, `GET /api/me/offers/`, `GET /api/me/orders/`, `POST /api/orders/<id>/<accept|decline|cancel|complete>/`, `POST /api/orders/<id>/rating/`, `GET/POST /api/requests/`, `POST /api/requests/<id>/supply/`, `POST /api/requests/<id>/close/`, `GET /api/me/requests/`.
+- Farmers' **real track record**: star rating and completed orders on every card, written reviews on the listing page, waiting offers per listing in My listings. A market page now costs 6 SQL queries however many cards.
+- Accounts: optional **Business** field (Supermarket, School, Hotel...). Businesses are shown by full name ("FreshMart, Avondale"); people as "Tendai M.".
+- `seed_orders` (run by start-windows.bat): 8 sample buyers, requests 501-505, the same sample offers as before (9001...), past sales and ratings for sample farmers, and Rudo's orders.
+- Front end: **`mock.js` deleted**; every MarketAPI function is a real server call. "Sample data... Put the sample offers back" removed from My account.
+- **Your role is shown everywhere:** a gold **Buyer** / **Farmer** / **Farmer and buyer** label in the top bar (main page and listing page) and next to "Hello, ..." on My account, plus "You're logged in as a buyer." For a buyer, the yellow top button is **Post what you need** (it was "Sell produce", which buyers can't use).
+- Fixed: on phones the page could scroll sideways a little (hidden radio buttons sticking out).
+- Admin: orders (with their ratings), ratings, buyer requests (with "Close the selected requests").
+- Tests: 91.
+
+**Next:** staff tools polish and a security review, then going-live planning (hosting, PostgreSQL, HTTPS, real WhatsApp; costs checked first).

@@ -41,6 +41,8 @@ REM 6. Demo accounts (Tendai, Rudo, staff) - only created if missing
 ".venv\Scripts\python.exe" manage.py seed_demo || goto :fail
 REM    Sample listings and market prices - only if the market is empty
 ".venv\Scripts\python.exe" manage.py seed_market || goto :fail
+REM    Sample buyers, buyer requests, offers, orders and ratings - only if there are no orders
+".venv\Scripts\python.exe" manage.py seed_orders || goto :fail
 
 REM 7. Start the server
 echo [5/5] Starting server (WhatsApp codes appear in THIS window) at http://127.0.0.1:8000  (Ctrl+C to stop)

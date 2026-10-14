@@ -31,6 +31,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7 1.4-1.4M4.9 19.1l1.4-1.4m0-11.4L4.9 4.9m14.2 14.2-1.4-1.4M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
       </button>
       <a class="btn btn-ghost-light" href="/login/?next=/listing/{{ listing_id }}/" id="loginLink">Log in</a>
+      <a class="role-badge" href="/account/" id="whoRole" hidden></a>
       <a class="btn btn-ghost-light" href="/account/" id="accountLink" hidden>My account</a>
     </div>
   </header>
@@ -50,7 +51,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="{% asset 'web/mock.js' %}" defer></script>
   <script src="{% asset 'web/api.js' %}" defer></script>
   <script src="{% asset 'web/common.js' %}" defer></script>
   <script src="{% asset 'web/listing.js' %}" defer></script>

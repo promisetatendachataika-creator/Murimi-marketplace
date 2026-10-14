@@ -72,6 +72,8 @@ INSTALLED_APPS = [
     "accounts",                     # users, log-in, WhatsApp codes
     "prices",                       # market prices and the fair-price meter
     "listings",                     # produce for sale, photos
+    "buyer_requests",               # "I need 300 crates every week"
+    "orders",                       # offers, orders, ratings
     "web",                          # serves the marketplace pages
 ]
 

@@ -72,5 +72,9 @@ window.Murimi = (function () {
     });
   }
 
-  return { $, $$, STATIC, cropPhoto, unitLabel, usd, esc, shortDate, monthYear, daysAgo, weeksAway, ICON, stars, meterHTML, toast, themeToggle };
+  // Which kind of account is logged in, in plain words.
+  const ROLE_WORDS = { farmer: "Farmer", buyer: "Buyer", both: "Farmer and buyer" };
+  const roleWords = (user) => (user && ROLE_WORDS[user.role]) || "";
+
+  return { roleWords, $, $$, STATIC, cropPhoto, unitLabel, usd, esc, shortDate, monthYear, daysAgo, weeksAway, ICON, stars, meterHTML, toast, themeToggle };
 })();

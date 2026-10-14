@@ -34,7 +34,7 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = [
         (None, {"fields": ["phone", "password"]}),
-        ("Person", {"fields": ["name", "username", "email", "role"]}),
+        ("Person", {"fields": ["name", "username", "email", "role", "business_type"]}),
         ("Trust", {"fields": ["phone_verified_at", "is_verified_farmer", "verified_farmer_on"]}),
         ("Access", {"fields": ["is_active", "is_staff", "is_superuser", "groups", "user_permissions"]}),
         ("Dates", {"fields": ["last_login", "date_joined"]}),

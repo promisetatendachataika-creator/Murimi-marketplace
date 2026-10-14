@@ -324,7 +324,6 @@
       if (card) card.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     }
 
-    if (btn.id === "resetDemo") { MarketAPI.resetDemo(); toast("Sample offers are back to how they started."); refresh(); }
     if (btn.id === "logoutBtn") { await MarketAPI.logout(); location.href = "/"; }
   });
 
@@ -359,8 +358,8 @@
     if (!user) { location.replace("/login/?next=/account/"); return; }
     ME = user;
     const roleWords = { farmer: "Farmer", buyer: "Buyer", both: "Farmer and buyer" }[user.role] || "";
-    $("#hello").textContent = `Hello, ${user.name.split(" ")[0]}`;
-    $("#whoLine").innerHTML = `${esc(roleWords)}. WhatsApp <span class="phone">${esc(prettyPhone(user.phone))}</span>${user.username ? `, username <span class="phone">${esc(user.username)}</span>` : ""}.`;
+    $("#hello").innerHTML = `Hello, ${esc(user.name.split(" ")[0])}${roleWords ? ` <span class="role-badge">${esc(roleWords)}</span>` : ""}`;
+    $("#whoLine").innerHTML = `${roleWords ? `You're logged in as a ${esc(roleWords.toLowerCase())}. ` : ""}WhatsApp <span class="phone">${esc(prettyPhone(user.phone))}</span>${user.username ? `, username <span class="phone">${esc(user.username)}</span>` : ""}.`;
 
     // Show only the tabs that fit: farmers see offers and listings, buyers see orders.
     const isFarmer = user.role === "farmer" || user.role === "both";

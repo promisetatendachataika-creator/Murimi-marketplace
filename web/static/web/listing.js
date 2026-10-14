@@ -94,7 +94,7 @@
         ? `<p class="trust trust-yes">${ICON.check} <span><strong>Murimi Verified.</strong> A Murimi field officer visited this farm${f.verified_on ? ` on ${new Date(f.verified_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""} and checked their ID and land.</span></p>`
         : `<p class="trust trust-no"><span><strong>Not verified yet.</strong> A field officer hasn't visited this farm. Meet in a safe public place, check the produce before you pay, and never pay in advance.</span></p>`}
       <div class="record">
-        <div><span class="big">${f.completed_orders || 0}</span><span>completed orders</span></div>
+        <div><span class="big">${f.completed_orders || 0}</span><span>completed order${f.completed_orders === 1 ? "" : "s"}</span></div>
         <div><span class="big">${avg ? `${avg}` : "None"}</span><span>${avg ? stars(f.rating) : "ratings yet"}</span></div>
       </div>
       ${f.reviews.length ? `<h3>What buyers say</h3><ul class="reviews">${f.reviews.map((r) =>
@@ -200,6 +200,10 @@
       ME = (await MarketAPI.me()).user;
       $("#loginLink").hidden = !!ME;
       $("#accountLink").hidden = !ME;
+      const role = Murimi.roleWords(ME);
+      $("#whoRole").textContent = role;
+      $("#whoRole").hidden = !role;
+      $("#whoRole").title = role ? `You're logged in as a ${role.toLowerCase()}. Open My account` : "";
     }
     const res = await MarketAPI.getListing(ID);
     $("#main").removeAttribute("aria-busy");

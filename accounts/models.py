@@ -15,7 +15,7 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 from django.utils import timezone
 
-from .choices import ROLE_BOTH, ROLE_BUYER, ROLE_CHOICES, ROLE_FARMER  # noqa: F401
+from .choices import BUSINESS_CHOICES, ROLE_BOTH, ROLE_BUYER, ROLE_CHOICES, ROLE_FARMER  # noqa: F401
 from .phone import normalize_phone
 
 
@@ -53,6 +53,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     name = models.CharField(max_length=60)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, blank=True,
                             help_text="Blank for staff.")
+    business_type = models.CharField(
+        "Business", max_length=20, choices=BUSINESS_CHOICES, blank=True,
+        help_text="Leave blank for a person. For a shop, school, hotel... the full name is shown.")
     phone_verified_at = models.DateTimeField(null=True, blank=True,
                                              help_text="When the WhatsApp code was confirmed.")
     is_verified_farmer = models.BooleanField(
@@ -92,6 +95,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def public_name(self):
         """What other people see: first name and last initial, e.g. "Tendai M."."""
+        if self.business_type:                       # "FreshMart", "Mzilikazi High School": shown in full
+            return self.name
         parts = self.name.split()
         return f"{parts[0]} {parts[-1][0]}." if len(parts) > 1 else self.name
 

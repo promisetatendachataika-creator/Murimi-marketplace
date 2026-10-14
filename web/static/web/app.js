@@ -1,6 +1,6 @@
 /*
  * app.js - the page logic. It asks MarketAPI (api.js) for data and draws it.
- * It never reads mock.js directly, so swapping in the real API later is easy.
+ * All data comes from the server through MarketAPI; this file only draws.
  */
 (function () {
   "use strict";
@@ -502,7 +502,7 @@
   async function openSell() {
     const { user } = MarketAPI.me ? await MarketAPI.me() : { user: null };
     if (!user) { location.href = "/login/?next=" + encodeURIComponent("/#sell"); return; }
-    if (user.role === "buyer") { toast("Your account is for buying. Selling needs a farmer account; WhatsApp us to change it."); return; }
+    if (user.role === "buyer") { openRequest(); return; }        // buyers: this button is "Post what you need"
     $("#sellDialog").showModal();
   }
   $("#sellBtn").addEventListener("click", openSell);
@@ -716,7 +716,16 @@
     const { user } = await MarketAPI.me();
     $("#loginLink").hidden = !!user;
     $("#whoBox").hidden = !user;
-    if (user) { $("#whoName").textContent = "My account"; $("#whoName").title = "Logged in as " + user.name; }
+    const role = { farmer: "Farmer", buyer: "Buyer", both: "Farmer and buyer" }[user && user.role] || "";
+    // Phones get the short form ("Farmer+buyer") so the top bar still fits.
+    $("#whoRole").innerHTML = role === "Farmer and buyer"
+      ? `<span class="lbl-long">Farmer and buyer</span><span class="lbl-short">Farmer+buyer</span>` : role;
+    $("#whoRole").hidden = !role;
+    $("#whoRole").title = role ? `You're logged in as a ${role.toLowerCase()}. Open My account` : "";
+    if (user) { $("#whoName").textContent = "My account"; $("#whoName").title = `Logged in as ${user.name} (${role})`; }
+    // A buyer can't sell, so the yellow button becomes what buyers do instead.
+    $("#sellBtn").innerHTML = user && user.role === "buyer"
+      ? `<span class="lbl-long">Post what you need</span><span class="lbl-short">Post a need</span>` : "Sell produce";
   }
   $("#logoutBtn").addEventListener("click", async () => {
     await MarketAPI.logout();

@@ -23,6 +23,7 @@ from django.utils.dateparse import parse_date
 from accounts.choices import (CROPS, DELIVERY_CHOICES, POULTRY, PRICE_FRESH_DAYS, PRODUCT_UNITS, PRODUCTS,
                               PROVINCES, READY_WINDOW_DAYS, UNIT_CHOICES, CROP_UNITS, units_for)
 from core.http import allow, json_error
+from orders.records import seller_records, seller_reviews
 from prices.models import PriceReport, compare, latest_price, latest_prices
 
 from .models import Listing, ListingPhoto
@@ -35,11 +36,14 @@ REPEATS = [{"value": "once", "label": "Once"}, {"value": "weekly", "label": "Eve
 
 
 # ---------------------------------------------------------------- shaping JSON
-def farmer_card(user):
-    """What buyers see about a farmer on a card. Never the phone number."""
+def farmer_card(user, records=None):
+    """What buyers see about a farmer on a card. Never the phone number.
+    records = seller_records() for a whole page (two queries), or None to look this one farmer up."""
+    if records is None:
+        records = seller_records([user.id])
+    rating, completed = records.get(user.id, (0, 0))
     return {"id": user.id, "name": user.public_name(), "verified": user.is_verified_farmer,
-            # Ratings and completed orders arrive with the orders job; 0 shows "New seller".
-            "rating": 0, "completed_orders": 0}
+            "rating": rating, "completed_orders": completed}       # 0 completed shows "New seller"
 
 
 def photo_urls(listing, request):
@@ -49,7 +53,7 @@ def photo_urls(listing, request):
 _LOOK_UP = object()   # "work the market price out yourself" (a missing price is None, which is a real answer)
 
 
-def listing_json(l, request, market=_LOOK_UP):
+def listing_json(l, request, market=_LOOK_UP, records=None):
     photos = photo_urls(l, request)
     return {
         "id": l.id, "status": l.status, "crop": l.crop, "variety": l.variety,
@@ -63,7 +67,7 @@ def listing_json(l, request, market=_LOOK_UP):
         "created_at": timezone.localtime(l.created_at).strftime("%Y-%m-%dT%H:%M:%S"),
         "photo_url": photos[0] if photos else None,
         "market": compare(l.price_usd, latest_price(l.crop, l.unit)) if market is _LOOK_UP else market,
-        "farmer": farmer_card(l.farmer),
+        "farmer": farmer_card(l.farmer, records),
     }
 
 
@@ -231,7 +235,9 @@ def listings(request):
         count = qs.count()
         rows = list(qs[(page - 1) * PAGE_SIZE: page * PAGE_SIZE])        # LIMIT 12 OFFSET ...
         prices = market_cache()
-        results = [listing_json(l, request, market=compare(l.price_usd, prices.get((l.crop, l.unit)))) for l in rows]
+        records = seller_records({l.farmer_id for l in rows})
+        results = [listing_json(l, request, market=compare(l.price_usd, prices.get((l.crop, l.unit))), records=records)
+                   for l in rows]
         return JsonResponse({"results": results, "count": count, "page": page,
                              "next": page + 1 if page * PAGE_SIZE < count else None})
 
@@ -271,14 +277,15 @@ def listing_detail(request, listing_id):
     if l.status == Listing.ACTIVE and l.ready_in_days > READY_WINDOW_DAYS and not mine:
         return json_error("This listing isn't open yet.", status=404)
 
-    data = listing_json(l, request)
+    records = seller_records([l.farmer_id])
+    data = listing_json(l, request, records=records)
     f = l.farmer
     data.update(
         description=l.description, photos=photo_urls(l, request), is_mine=mine,
         sold_out=l.quantity_left < 1 or l.status == Listing.SOLD_OUT,
-        farmer={**farmer_card(f), "member_since": f.date_joined.strftime("%Y-%m"),
+        farmer={**farmer_card(f, records), "member_since": f.date_joined.strftime("%Y-%m"),
                 "verified_on": f.verified_farmer_on.isoformat() if f.is_verified_farmer and f.verified_farmer_on else None,
-                "reviews": []},
+                "reviews": seller_reviews(f)},
     )
     open_ = Listing.objects.open().exclude(pk=l.pk)
     data["more_from_farmer"] = [{"id": x.id, "crop": x.crop, "variety": x.variety, "price_usd": float(x.price_usd), "unit": x.unit}
@@ -334,11 +341,13 @@ def my_listings(request):
     if not request.user.is_authenticated:
         return json_error("Please log in.", status=401)
     qs = Listing.objects.filter(farmer=request.user).exclude(status=Listing.HIDDEN) \
-        .select_related("farmer").prefetch_related("photos").order_by("-created_at")
+        .select_related("farmer").prefetch_related("photos").order_by("-created_at") \
+        .annotate(pending_n=Count("orders", filter=Q(orders__status="pending")))
+    records = seller_records([request.user.id])
     results = []
     for l in qs:
-        d = listing_json(l, request)
+        d = listing_json(l, request, records=records)
         d["status"] = Listing.SOLD_OUT if (l.status == Listing.ACTIVE and l.quantity_left < 1) else l.status
-        d["pending_offers"] = 0                         # filled in when offers move to the server
+        d["pending_offers"] = l.pending_n
         results.append(d)
     return JsonResponse({"results": results})

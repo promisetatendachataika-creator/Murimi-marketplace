@@ -362,8 +362,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .unit { font-weight: 600; }
 .hint { color: var(--ink-2); }
 .seg { display: flex; flex-wrap: wrap; gap: 8px; }
-.seg label { cursor: pointer; }
-.seg input { position: absolute; opacity: 0; }
+.seg label { cursor: pointer; position: relative; }      /* keeps the hidden radio inside its button (no sideways scroll on phones) */
+.seg input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; }
 .seg span { display: inline-flex; align-items: center; min-height: 42px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line); font-weight: 600; }
 .seg input:checked + span { border-color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); }
 .seg input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -427,6 +427,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .who a:hover { color: var(--maize); }
 .form-error a { color: inherit; }
 @media (max-width: 560px) { #logoutBtn { display: none; } #whoName { font-size: 0.92rem; } }
+
+/* "Buyer" / "Farmer" / "Farmer and buyer": which kind of account is logged in */
+.role-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  background: var(--maize); color: var(--maize-ink); font: 600 0.78rem/1.2 var(--mono); letter-spacing: 0.02em;
+  text-decoration: none; vertical-align: middle; }
+.role-badge[hidden] { display: none; }
+.lbl-short { display: none; }
+@media (max-width: 560px) {
+  .who #whoName { display: none; }              /* on phones the badge itself opens My account */
+  .lbl-long { display: none; } .lbl-short { display: inline; }
+  .who .role-badge { font-size: 0.7rem; padding: 3px 8px; }
+}
+h1 .role-badge { font-size: 0.95rem; margin-left: 10px; position: relative; top: -4px; }
 
 /* Card title and photo open the listing page */
 a.card-top { display: block; color: inherit; }
