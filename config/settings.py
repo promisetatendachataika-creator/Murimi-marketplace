@@ -70,6 +70,8 @@ INSTALLED_APPS = [
     # Our own apps, one per job:
     "core",                         # /api/health/ and the shared JSON helpers
     "accounts",                     # users, log-in, WhatsApp codes
+    "prices",                       # market prices and the fair-price meter
+    "listings",                     # produce for sale, photos
     "web",                          # serves the marketplace pages
 ]
 
@@ -168,4 +170,11 @@ USE_TZ = True                 # the DB stores UTC; Django converts for display
 
 
 STATIC_URL = "static/"
+
+# Uploaded files (listing photos). On the laptop Django serves them; when we go live,
+# the web server or a storage service does.
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024     # a form with photos may be up to ~12 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

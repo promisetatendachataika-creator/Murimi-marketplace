@@ -166,4 +166,18 @@ Full notes: `docs/lessons/03-first-endpoint.md`.
 - Bugs found by tests and fixed: a duplicate username/email wasn't flagged when the number also belonged to an active account; the log-in limit counted successful log-ins too.
 - Tests: 45.
 
-**Next:** Job 3: Listings (real table, photo uploads checked on the server, filters, Show more, drafts, sold out, coming soon).
+## Job 3 + 4: Listings and market prices, real backend (14 Oct 2026)
+- New app `prices`: **PriceReport** table (product, unit, market, US$, ZiG, date, note; same idea as the Hub's). Fair-price rule on the server: within 5% = at market; older than 7 days = "out of date". Staff enter prices in /admin/.
+- New app `listings`: **Listing** table (farmer, product, variety, quantity, quantity left, unit, US$ and ZiG price, province, district, ready on, harvested on, delivery, must sell today, description, status draft / active / sold out / hidden) with database checks (quantity left never more than quantity; price above 0 unless draft) and indexes for the market filters. **ListingPhoto** table (up to 3 per listing).
+- **Photo uploads checked on the server** (`listings/photos.py`): max 10 MB; type decided by reading the file's bytes (JPEG, PNG, WebP only; a renamed program or GIF is refused); re-saved as a fresh JPEG of at most 1600 px, which **removes the phone's GPS location**.
+- "Open on the market" = active, quantity left > 0, ready within 14 days, and "must sell today" only until 6 pm on the day listed. Drafts and hidden listings are 404 for everyone except the owner (and staff).
+- Endpoints: `GET /api/meta/` (menus + latest prices), `GET /api/stats/` (map counts, `GROUP BY province`), `GET/POST /api/listings/` (filters, sort incl. **best value vs market computed in the database with a subquery**, pages of 12), `GET /api/listings/<id>/`, `POST /api/listings/<id>/sold-out/`, `POST /api/listings/<id>/publish/`, `GET /api/me/listings/`. A market page costs 4 SQL queries however many cards.
+- Listings never include a phone number.
+- Admin: search and filter listings, photo previews, **Hide from the market** / **Put back**.
+- `seed_market` (run by start-windows.bat): if the market is empty, adds the 20 sample listings (same ids as before, 101-120), 1 draft, 19 sample farmers (can't log in), 9 sample Mbare prices, and Tendai's 3 tomato photos.
+- Front end: the market, map, filters, Show more, listing page, Sell form (photos now sent as real files), drafts and Mark sold out all use the real server. `mock.js` now only holds sample offers and buyer requests (100 lines, was 250).
+- Known gap until Job 5: accepting a SAMPLE offer doesn't lower the real stock; ratings and completed orders show "New seller"; reviews are empty.
+- Bug found by a test and fixed: products with no market price (tobacco, cotton) caused one extra database query per card.
+- New requirement: Pillow (photos). Tests: 66.
+
+**Next:** Job 5: Offers and orders on the server (accept with the "last crate" protection, contact reveal, ratings), then Job 6: buyer requests.

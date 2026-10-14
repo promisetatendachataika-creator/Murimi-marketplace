@@ -30,10 +30,11 @@ window.MarketAPI = (function () {
 
   /* Today's market price for a crop + unit, or null if we have none.
      LATER: the server adds this to each listing (Lesson 10, fair-price meter). */
+  // Latest market price per product and unit, filled in by meta() from the server (prices app).
+  let PRICES = [];
+  let FRESH_DAYS = 7;
   function marketPriceFor(crop, unit) {
-    const rows = M.MARKET_PRICES.filter((p) => p.crop === crop && p.unit === unit);
-    rows.sort((a, b) => b.date.localeCompare(a.date)); // newest first, like ORDER BY date DESC
-    return rows[0] || null;
+    return PRICES.find((p) => p.crop === crop && p.unit === unit) || null;   // server sends the newest only
   }
 
   /* Compare an asking price with the market: "below", "at" or "above".
@@ -45,7 +46,7 @@ window.MarketAPI = (function () {
     const band = diff < -0.05 ? "below" : diff > 0.05 ? "above" : "at";
     const age = -daysUntil(m.date);
     // An old price could mislead a farmer or buyer, so we say it's old instead of comparing.
-    if (age > M.PRICE_FRESH_DAYS) return { stale: true, age_days: age, usd: m.usd, market: m.market, date: m.date };
+    if (age > FRESH_DAYS) return { stale: true, age_days: age, usd: m.usd, market: m.market, date: m.date };
     return { usd: m.usd, market: m.market, date: m.date, diff: diff, band: band, age_days: age };
   }
 
@@ -111,19 +112,17 @@ window.MarketAPI = (function () {
   const qtyLeft = () => store("murimi-demo-qty") || {};          // { listingId: quantity_left }
   const soldOut = () => store("murimi-demo-soldout") || [];      // [listingId, ...]
 
-  // Listings farmers created in this browser (the demo's "listing" table rows).
-  const madeHere = () => store("murimi-demo-mylistings") || [];
-  const allListings = () => M.LISTINGS.concat(madeHere().filter((l) => l.status === "active"));
-  const allDrafts = () => M.DRAFTS.concat(madeHere().filter((l) => l.status === "draft"));
-  const findListing = (id) => allListings().find((x) => x.id === id) || allDrafts().find((x) => x.id === id);
-
-  /* Apply what happened in this browser (accepted orders, "sold out") to a listing. */
-  function liveListing(l) {
-    const left = qtyLeft()[l.id];
-    if (left !== undefined) l.quantity_left = left;
-    if (soldOut().includes(l.id)) l.quantity_left = 0;
-    return l;
+  // "data:image/jpeg;base64,..." -> a file the form can send
+  function dataUrlToBlob(dataUrl) {
+    const [head, b64] = dataUrl.split(",");
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type: head.slice(5, head.indexOf(";")) });
   }
+
+  // Offers accepted in this browser (sample offers), per listing, until offers move to the server.
+  const acceptedHere = () => store("murimi-demo-qty") || {};     // { listingId: quantity accepted here }
 
   /* THE STATUS RULES. The server will have the same table.
      action: which statuses it may start from, who may do it, and the new status.
@@ -238,59 +237,33 @@ window.MarketAPI = (function () {
       }
     },
 
-    /* LATER: GET /api/meta/  (the lists the page needs to build its menus) */
-    meta() {
-      return Promise.resolve({
-        crops: M.CROPS, poultry: M.POULTRY, products: M.CROPS.concat(M.POULTRY),
-        provinces: M.PROVINCES, units: M.UNITS, product_units: M.PRODUCT_UNITS,
-        ready_window_days: M.READY_WINDOW_DAYS, repeats: M.REPEATS,
-      });
+    /* REAL: GET /api/meta/  (menus + latest market prices) */
+    async meta() {
+      const res = await call("GET", "/api/meta/");
+      if (!res.ok) throw new Error(res.body.error);
+      PRICES = res.body.prices || [];
+      FRESH_DAYS = res.body.price_fresh_days || 7;
+      return res.body;
     },
 
-    /* LATER: GET /api/listings/?crop=&province=&max_price=&sell_today=&sort= */
+    /* REAL: GET /api/listings/?crop=&province=&max_price=&ready=&sell_today=&sort=&page=
+       Throws when the connection fails, so the page can show "We couldn't load the produce". */
     async listListings(filters = {}) {
-      await wait();
-      let rows = copy(allListings()).map(liveListing).filter((l) => l.quantity_left > 0);    // WHERE quantity_left > 0
-      rows.forEach((l) => (l.ready_in_days = Math.max(0, daysUntil(l.available_from))));
-      rows = rows.filter((l) => l.ready_in_days <= M.READY_WINDOW_DAYS);  // AND available_from <= today + 14
-      if (filters.ready === "now") rows = rows.filter((l) => l.ready_in_days === 0);
-      if (filters.ready === "soon") rows = rows.filter((l) => l.ready_in_days > 0);
-      if (filters.crop) rows = rows.filter((l) => l.crop === filters.crop);             // AND crop = ?
-      if (filters.province) rows = rows.filter((l) => l.province === filters.province); // AND province = ?
-      if (filters.max_price) rows = rows.filter((l) => l.price_usd <= Number(filters.max_price));
-      if (filters.sell_today) rows = rows.filter((l) => l.sell_today);
-      // "Must sell today" listings only last until 6 pm on the day they were listed.
-      const now = new Date();
-      const endedToday = now.getHours() >= M.SELL_TODAY_ENDS_HOUR;
-      const today = now.toISOString().slice(0, 10);
-      rows = rows.filter((l) => !l.sell_today || (l.created_at.slice(0, 10) === today && !endedToday));
-      rows.forEach((l) => { if (l.sell_today) l.ends_at = `${today}T${String(M.SELL_TODAY_ENDS_HOUR).padStart(2, "0")}:00`; });
-      rows.forEach((l) => (l.market = fairPrice(l.crop, l.unit, l.price_usd)));
-
-      const sorters = {                                                   // ORDER BY ...
-        newest: (a, b) => b.created_at.localeCompare(a.created_at),
-        price_asc: (a, b) => a.price_usd - b.price_usd,
-        price_desc: (a, b) => b.price_usd - a.price_usd,
-        fair: (a, b) => (a.market ? a.market.diff : 9) - (b.market ? b.market.diff : 9),
-      };
-      rows.sort(sorters[filters.sort] || sorters.newest);
-      // Pages: the page asks for page 1, 2, 3... and gets PAGE_SIZE listings at a time
-      // (SQL: LIMIT 12 OFFSET 12). "next" says whether there is another page.
-      const PAGE_SIZE = 12;
-      const page = Math.max(1, Number(filters.page) || 1);
-      const slice = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-      return { results: slice, count: rows.length, page, next: page * PAGE_SIZE < rows.length ? page + 1 : null };
+      const q = new URLSearchParams();
+      ["crop", "province", "max_price", "ready", "sort", "page"].forEach((k) => { if (filters[k]) q.set(k, filters[k]); });
+      if (filters.sell_today) q.set("sell_today", "1");
+      if (DEMO === "offline") throw new TypeError("Failed to fetch");       // practise bad connections: ?demo=offline
+      if (DEMO === "slow") await wait(2500);
+      const res = await call("GET", "/api/listings/?" + q);
+      if (!res.ok) throw new Error(res.body.error);
+      return res.body;
     },
 
-    /* LATER: GET /api/stats/  (SELECT province, COUNT(*) ... GROUP BY province) */
+    /* REAL: GET /api/stats/  (SQL: SELECT province, COUNT(*) ... GROUP BY province) */
     async stats() {
-      const today = new Date().toISOString().slice(0, 10), ended = new Date().getHours() >= M.SELL_TODAY_ENDS_HOUR;
-      const live = copy(allListings()).map(liveListing).filter((l) => l.quantity_left > 0 && daysUntil(l.available_from) <= M.READY_WINDOW_DAYS
-        && (!l.sell_today || (l.created_at.slice(0, 10) === today && !ended)));
-      const byProvince = {};
-      live.forEach((l) => (byProvince[l.province] = (byProvince[l.province] || 0) + 1));
-      const farmers = new Set(live.filter((l) => l.farmer.verified).map((l) => l.farmer.name));
-      return { listings: live.length, verified_farmers: farmers.size, by_province: byProvince };
+      const res = await call("GET", "/api/stats/");
+      if (!res.ok) throw new Error(res.body.error);
+      return res.body;
     },
 
     /* LATER: GET /api/requests/   (open requests whose date hasn't passed, soonest first) */
@@ -394,9 +367,9 @@ window.MarketAPI = (function () {
       await wait(400);
       const me = store("murimi-demo-session");
       if (!me) return fail(401, "Please log in to send an offer.");
-      const raw = allListings().find((x) => x.id === listingId);
-      const l = raw && liveListing(copy(raw));
-      if (!l || l.quantity_left < 1) return fail(404, "This listing is no longer available.");
+      const got = await call("GET", `/api/listings/${listingId}/`);       // the real listing
+      const l = got.ok ? got.body : null;
+      if (!l || l.sold_out || l.quantity_left < 1) return fail(404, "This listing is no longer available.");
       if (l.farmer.id === me.id) return fail(400, "This is your own listing.");
       const q = Number(data.quantity);
       if (!Number.isInteger(q) || q < 1 || q > l.quantity_left) {
@@ -413,38 +386,8 @@ window.MarketAPI = (function () {
       return okay(201, viewFor(order, me));
     },
 
-    /* LATER: GET /api/listings/<id>/
-       One listing with everything the details page needs: photos, description,
-       the farmer's profile and reviews, and a few similar listings.
-       (SQL: SELECT ... FROM listing JOIN user ON listing.farmer_id = user.id WHERE listing.id = ?) */
-    async getListing(id) {
-      await wait(250);
-      const me = store("murimi-demo-session");
-      const raw = findListing(id);
-      if (!raw) return fail(404, "This listing doesn't exist or was removed.");
-      const l = liveListing(copy(raw));
-      const mine = !!(me && l.farmer.id === me.id);
-      if (l.status === "draft" && !mine) return fail(404, "This listing doesn't exist or was removed.");
-      l.ready_in_days = Math.max(0, daysUntil(l.available_from));
-      if (l.ready_in_days > M.READY_WINDOW_DAYS) return fail(404, "This listing isn't open yet.");
-      l.market = fairPrice(l.crop, l.unit, l.price_usd);
-      l.description = l.description || M.DESCRIPTIONS[l.id] || "";
-      l.photos = (l.photos && l.photos.length ? l.photos : M.PHOTOS[l.id]) || [];
-      l.is_mine = mine;
-      l.sold_out = l.quantity_left < 1;
-      const prof = M.FARMERS[l.farmer.name] || {};
-      l.farmer = Object.assign({}, l.farmer, {
-        member_since: prof.member_since || null, verified_on: l.farmer.verified ? (prof.verified_on || null) : null,
-        reviews: prof.reviews || [],
-      });
-      delete l.farmer.phone;                       // never sent here: only after an accepted order
-      const open = copy(allListings()).map(liveListing).filter((x) => x.quantity_left > 0 && daysUntil(x.available_from) <= M.READY_WINDOW_DAYS);
-      l.more_from_farmer = open.filter((x) => x.farmer.name === raw.farmer.name && x.id !== id).slice(0, 3)
-        .map((x) => ({ id: x.id, crop: x.crop, variety: x.variety, price_usd: x.price_usd, unit: x.unit }));
-      l.similar = open.filter((x) => x.crop === l.crop && x.id !== id).slice(0, 3)
-        .map((x) => ({ id: x.id, crop: x.crop, variety: x.variety, price_usd: x.price_usd, unit: x.unit, province: x.province, district: x.district }));
-      return okay(200, l);
-    },
+    /* REAL: GET /api/listings/<id>/  (photos, description, farmer profile, similar listings) */
+    getListing(id) { return call("GET", `/api/listings/${id}/`); },
 
     // ---------- My account ----------
     /* LATER: GET /api/me/offers/  (offers on MY listings, newest first) */
@@ -467,20 +410,15 @@ window.MarketAPI = (function () {
       return okay(200, { results: rows.map((o) => viewFor(o, me)) });
     },
 
-    /* LATER: GET /api/me/listings/  (all MY listings, drafts and sold out too) */
+    /* REAL: GET /api/me/listings/  (all MY listings, drafts and sold out too) */
     async myListings() {
-      await wait(200);
-      const me = store("murimi-demo-session");
-      if (!me) return fail(401, "Please log in.");
+      const res = await call("GET", "/api/me/listings/");
+      if (!res.ok) return res;
       const orders = loadOrders();
-      const rows = copy(allListings().concat(allDrafts())).filter((l) => l.farmer.id === me.id).map(liveListing)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at));
-      rows.forEach((l) => {
-        l.ready_in_days = Math.max(0, daysUntil(l.available_from));
-        l.status = l.status === "draft" ? "draft" : l.quantity_left < 1 ? "sold_out" : "active";
+      res.body.results.forEach((l) => {
         l.pending_offers = orders.filter((o) => o.listing_id === l.id && o.status === "pending").length;
       });
-      return okay(200, { results: rows });
+      return res;
     },
 
     /* LATER: POST /api/orders/<id>/<action>/   action = accept | decline | cancel | complete
@@ -514,15 +452,15 @@ window.MarketAPI = (function () {
         store("murimi-demo-reqfill", ex);
         o.accepted_at = new Date().toISOString().slice(0, 10);
       } else if (action === "accept") {
-        // Lower the quantity left, but only if there is enough. (Server: SELECT ... FOR UPDATE)
-        const raw = allListings().find((x) => x.id === o.listing_id);
-        const left = raw ? liveListing(copy(raw)).quantity_left : 0;
+        // Only if there is enough left. (Server, next job: transaction.atomic + SELECT ... FOR UPDATE)
+        const got = await call("GET", `/api/listings/${o.listing_id}/`);
+        const left = got.ok ? got.body.quantity_left - (acceptedHere()[o.listing_id] || 0) : 0;
         if (left < o.quantity) {
           return fail(409, left > 0
             ? `Only ${left} left, but this offer asks for ${o.quantity}. Decline it, or ask the buyer to send a smaller offer.`
             : "This listing is sold out.");
         }
-        store("murimi-demo-qty", Object.assign(qtyLeft(), { [o.listing_id]: left - o.quantity }));
+        store("murimi-demo-qty", Object.assign(acceptedHere(), { [o.listing_id]: (acceptedHere()[o.listing_id] || 0) + o.quantity }));
         o.accepted_at = new Date().toISOString().slice(0, 10);
       }
       if (action === "complete") o.completed_at = new Date().toISOString().slice(0, 10);
@@ -549,87 +487,28 @@ window.MarketAPI = (function () {
       return okay(201, viewFor(o, me));
     },
 
-    /* LATER: POST /api/listings/<id>/sold-out/  (owner only) */
-    async markSoldOut(listingId) {
-      await wait(300);
-      const me = store("murimi-demo-session");
-      const l = allListings().find((x) => x.id === listingId);
-      if (!me || !l || l.farmer.id !== me.id) return fail(403, "Only the farmer who listed this can change it.");
-      store("murimi-demo-soldout", soldOut().concat([listingId]));
-      return okay(200, { id: listingId, status: "sold_out" });
-    },
+    /* REAL: POST /api/listings/<id>/sold-out/  (owner only) */
+    markSoldOut(listingId) { return call("POST", `/api/listings/${listingId}/sold-out/`); },
 
     /* Demo only: put the sample offers and listings back to how they started. */
-    resetDemo() { ["murimi-demo-orders", "murimi-demo-qty", "murimi-demo-soldout", "murimi-demo-mylistings",
-      "murimi-demo-requests", "murimi-demo-reqfill", "murimi-demo-reqclosed"].forEach((k) => store(k, null)); },
+    resetDemo() { ["murimi-demo-orders", "murimi-demo-qty", "murimi-demo-requests", "murimi-demo-reqfill", "murimi-demo-reqclosed"].forEach((k) => store(k, null)); },
 
-    /* LATER: POST /api/listings/   (multipart form: the fields + up to 3 photo files)
-       Every check below is repeated on the server. A draft may be half-finished;
-       publishing ("active") needs everything. Errors come back per field. */
+    /* REAL: POST /api/listings/  (a multipart form: the fields + up to 3 photo FILES).
+       The page shrinks photos to small JPEGs first (data: addresses); here they become
+       files again. The server checks everything again (never trust the browser). */
     async createListing(data) {
-      await wait(450);
-      const me = store("murimi-demo-session");
-      if (!me) return fail(401, "Please log in to list produce.");
-      if (me.role === "buyer") return fail(403, "Only farmer accounts can list produce.");
-      const draft = data.status === "draft";
-      const errors = {};
-      const products = M.CROPS.concat(M.POULTRY);
-      const num = (v) => (v === "" || v == null ? null : Number(v));
-      const qty = num(data.quantity), price = num(data.price), zig = num(data.price_zig);
-
-      if (!products.includes(data.crop)) errors.crop = "Choose a product from the list.";
-      const allowed = M.PRODUCT_UNITS[data.crop] || M.PRODUCT_UNITS._crops;
-      if (data.unit && !allowed.includes(data.unit)) errors.unit = "That unit doesn't fit this product.";
-      if (qty !== null && (!Number.isInteger(qty) || qty < 1 || qty > 100000)) errors.quantity = "Enter a whole number from 1 to 100 000.";
-      if (price !== null && (!(price > 0) || price > 100000)) errors.price = "Enter a price above 0.";
-      if (zig !== null && (!(zig >= 0) || zig > 10000000)) errors.price_zig = "Enter a ZiG price, or leave it empty.";
-      if (data.province && !M.PROVINCES.includes(data.province)) errors.province = "Choose a province from the list.";
-      if (!["pickup", "delivery", "both"].includes(data.delivery)) errors.delivery = "Choose how buyers get it.";
-      if (String(data.description || "").length > 500) errors.description = "Keep the description under 500 characters.";
-      const pics = Array.isArray(data.photos) ? data.photos : [];
-      if (pics.length > 3) errors.photos = "Up to 3 photos.";
-      if (pics.some((p) => !/^data:image\/(jpeg|png|webp);base64,/.test(p))) errors.photos = "Photos must be JPG, PNG or WebP.";
-
-      if (data.available) {
-        const d = daysUntil(data.available);
-        if (d < 0) errors.available = "The ready date can't be in the past.";
-        if (d > M.READY_WINDOW_DAYS) errors.available = `You can list up to ${M.READY_WINDOW_DAYS} days before it's ready. Please come back closer to the date.`;
-      }
-      if (data.harvested_on) {
-        const h = daysUntil(data.harvested_on);
-        if (h > 0) errors.harvested_on = "The harvest date can't be in the future.";
-        if (h < -60) errors.harvested_on = "That harvest date is more than 60 days ago.";
-      }
-      if (!draft) {
-        if (qty === null) errors.quantity = errors.quantity || "Enter how much you have.";
-        if (price === null) errors.price = errors.price || "Enter your price per unit.";
-        if (!data.unit) errors.unit = errors.unit || "Choose a unit.";
-        if (!data.province) errors.province = errors.province || "Choose your province.";
-        if (!String(data.district || "").trim()) errors.district = "Enter your district or area.";
-        if (!data.available) errors.available = errors.available || "Choose when it's ready.";
-      }
-      if (Object.keys(errors).length) return fail(400, "Please check the form.", errors);
-
-      // The farmer's public profile comes from their account, never from the form.
-      const known = M.LISTINGS.find((x) => x.farmer.id === me.id);
-      const farmer = known ? copy(known.farmer)
-        : { id: me.id, name: me.name.split(" ")[0] + " " + (me.name.split(" ")[1] || "").charAt(0) + ".", verified: false, rating: 0, completed_orders: 0 };
-      const now = new Date().toISOString().slice(0, 19);
-      const listing = {
-        id: Date.now(), status: draft ? "draft" : "active", crop: data.crop, variety: String(data.variety || "").trim().slice(0, 60),
-        quantity: qty || 0, quantity_left: qty || 0, unit: data.unit, price_usd: price || 0, price_zig: zig,
-        province: data.province || "", district: String(data.district || "").trim().slice(0, 60),
-        available_from: data.available || new Date().toISOString().slice(0, 10), harvested_on: data.harvested_on || null,
-        delivery: data.delivery, sell_today: !!data.sell_today && !(daysUntil(data.available || "") > 0), created_at: now,
-        description: String(data.description || "").trim(), photos: pics, photo_url: pics[0] || null, farmer,
-      };
+      const form = new FormData();
+      ["crop", "variety", "quantity", "unit", "price", "price_zig", "available", "harvested_on", "province",
+        "district", "delivery", "description", "status"].forEach((k) => { if (data[k] != null && data[k] !== "") form.append(k, data[k]); });
+      if (data.sell_today) form.append("sell_today", "1");
+      (data.photos || []).forEach((dataUrl, i) => form.append("photos", dataUrlToBlob(dataUrl), `photo-${i + 1}.jpg`));
       try {
-        localStorage.setItem("murimi-demo-mylistings", JSON.stringify(madeHere().concat([listing])));
+        const res = await fetch("/api/listings/", { method: "POST", body: form, credentials: "same-origin",
+          headers: { "X-CSRFToken": csrfToken(), Accept: "application/json" } });
+        return { ok: res.ok, status: res.status, body: await res.json() };
       } catch (e) {
-        return fail(413, "The photos are too big for this demo. Try fewer photos.");
+        return { ok: false, status: 0, body: { error: "Can't reach the server. Check your connection and try again.", errors: {} } };
       }
-      listing.ready_in_days = Math.max(0, daysUntil(listing.available_from));
-      return okay(201, listing);
     },
 
     fairPrice,
