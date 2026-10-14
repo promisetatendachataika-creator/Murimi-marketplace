@@ -68,7 +68,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",      # one-time notices (used by the admin)
     "django.contrib.staticfiles",   # CSS / JS / images for the admin
     # Our own apps, one per job:
-    "web",                          # serves the marketplace page
+    "core",                         # /api/health/ and the shared JSON helpers
+    "web",                          # serves the marketplace pages
 ]
 
 # --- Middleware: checks every request walks through, in order -----------------
@@ -81,6 +82,10 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# A POST without a valid CSRF token is refused by middleware before any view runs.
+# For /api/ addresses this view answers in our JSON shape (see core/api.py).
+CSRF_FAILURE_VIEW = "core.api.csrf_failure"
 
 # The "front door map": the first urls.py Django reads for every request.
 ROOT_URLCONF = "config.urls"

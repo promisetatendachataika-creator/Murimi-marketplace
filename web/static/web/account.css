@@ -1,0 +1,116 @@
+/* =========================================================
+   My account page (/account/). Uses the tokens and buttons from app.css.
+   ========================================================= */
+
+.acct-head { background: linear-gradient(160deg, var(--forest-2), var(--forest) 70%); color: #f1f5ec; }
+.acct-head-inner { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 32px; padding-top: 36px; padding-bottom: 30px; }
+.acct-head h1 { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -0.02em; }
+.acct-who { margin-top: 6px; color: rgba(241, 245, 236, 0.75); }
+.acct-who .phone { font-family: var(--mono); color: #f1f5ec; }
+.acct-summary { font-size: 1.1rem; color: rgba(241, 245, 236, 0.85); max-width: 28em; }
+.acct-summary strong { color: var(--maize); font-weight: 700; }
+
+/* Tabs */
+.acct-tabs {
+  display: flex; gap: 4px; margin: 0 -20px 22px; padding: 0 20px;
+  border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none;
+  position: sticky; top: 60px; z-index: 5; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(8px);
+}
+.acct-tabs button {
+  flex: none; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 52px; padding: 0 14px; border: 0; background: none; cursor: pointer;
+  font-weight: 700; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.acct-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--green); }
+.acct-tabs button[hidden] { display: none; }
+.count { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--maize); color: var(--maize-ink); font-family: var(--mono); font-size: 0.78rem; display: inline-grid; place-items: center; }
+.count:empty { display: none; }
+
+.acct-panel { display: grid; gap: 14px; padding-bottom: 20px; }
+.acct-panel[hidden] { display: none; }
+.group-title { font-size: 1.05rem; font-weight: 700; margin-top: 14px; display: flex; align-items: center; gap: 8px; }
+.group-title span { font-family: var(--mono); font-size: 0.85rem; color: var(--ink-2); font-weight: 400; }
+
+/* One offer / order / listing */
+.order, .mine {
+  display: grid; grid-template-columns: 84px minmax(0, 1.4fr) minmax(220px, 1fr); gap: 16px 22px; align-items: start;
+  padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+}
+.order .thumb, .mine .thumb { width: 84px; height: 84px; border-radius: 16px; }
+.order-pending { border-left: 4px solid var(--maize); }
+.order-declined, .order-cancelled { opacity: 0.72; }
+.order h3, .mine h3 { font-size: 1.12rem; }
+.order-who { color: var(--ink-2); font-size: 0.93rem; margin-top: 2px; }
+.order-who strong { color: var(--ink); }
+.order blockquote { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--line); color: var(--ink-2); font-style: italic; font-size: 0.93rem; }
+.order-facts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 12px 0 0; }
+.order-facts dt { font-family: var(--mono); font-size: 0.74rem; color: var(--ink-2); }
+.order-facts dd { margin: 0; font-weight: 600; font-size: 0.93rem; }
+.order .order-facts div:first-child dd { font-family: var(--mono); font-weight: 500; font-size: 1.05rem; }
+
+/* Status track: Sent -> Accepted -> Completed */
+.track { list-style: none; display: flex; gap: 0; margin: 14px 0 0; padding: 0; font-size: 0.8rem; color: var(--ink-2); }
+.track li { position: relative; flex: 1; max-width: 130px; padding-top: 16px; }
+.track li::before { content: ""; position: absolute; top: 4px; left: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--line); z-index: 1; }
+.track li::after { content: ""; position: absolute; top: 8px; left: 10px; right: 0; height: 2px; background: var(--line); }
+.track li:last-child::after { display: none; }
+.track li.done::before, .track li.done::after, .track li.now::before { background: var(--green); }
+.track li.now { color: var(--ink); font-weight: 700; }
+.track li.now::before { box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 25%, transparent); }
+.status { margin-top: 14px; font-size: 0.85rem; font-weight: 600; color: var(--ink-2); }
+
+/* Right side: contact, buttons, rating */
+.order-side { display: grid; gap: 12px; justify-items: stretch; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-row .btn { flex: 1 1 auto; }
+.btn.is-armed { background: var(--above); color: #fff; box-shadow: none; }
+.contact { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius); background: color-mix(in srgb, #25d366 10%, var(--surface)); border: 1px solid color-mix(in srgb, #25d366 35%, transparent); }
+.contact p { font-size: 0.9rem; }
+.contact .phone { display: block; font-family: var(--mono); font-size: 1.05rem; color: var(--ink); }
+.contact-wait { font-size: 0.88rem; color: var(--ink-2); }
+.rated { font-size: 0.88rem; color: var(--ink-2); }
+.rated .stars { margin: 0 4px; }
+
+.rate { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); }
+.rate fieldset { border: 0; margin: 0; padding: 0; }
+.rate legend { font-weight: 700; font-size: 0.93rem; margin-bottom: 4px; padding: 0; }
+.rate input[name=comment] { min-height: 42px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+/* Stars: listed 5..1 and shown right-to-left, so hovering lights up the stars before it */
+.star-pick { display: inline-flex; flex-direction: row-reverse; justify-content: flex-end; gap: 2px; }
+.star-pick input { position: absolute; opacity: 0; }
+.star-pick label { cursor: pointer; color: var(--line); font-size: 1.9rem; line-height: 1; padding: 2px; }
+.star-pick label .ico { width: 1em; height: 1em; }
+.star-pick input:checked ~ label, .star-pick label:hover, .star-pick label:hover ~ label { color: #d9a514; }
+.star-pick input:focus-visible + label { outline: 3px solid var(--focus); border-radius: 6px; }
+
+/* My listings */
+.pill { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+.pill-live { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+.pill-soon { background: var(--forest); color: #f1f5ec; box-shadow: inset 0 0 0 1.5px var(--maize); }
+.pill-draft { background: var(--surface-2); color: var(--ink-2); border: 1px dashed var(--line); }
+.pill-sold { background: var(--surface-2); color: var(--ink-2); }
+.stock-bar { margin-top: 12px; height: 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; max-width: 320px; }
+.stock-bar span { display: block; height: 100%; background: var(--maize); }
+
+.empty-box { padding: 28px; border: 2px dashed var(--line); border-radius: var(--radius-lg); color: var(--ink-2); }
+.demo-reset { margin: 26px 0 48px; font-size: 0.86rem; color: var(--ink-2); }
+.link-btn { background: none; border: 0; padding: 4px; cursor: pointer; font: inherit; color: var(--green); font-weight: 700; text-decoration: underline; }
+.field-error { color: var(--above); font-weight: 600; font-size: 0.85rem; }
+.field-error:empty { display: none; }
+
+@media (max-width: 860px) {
+  .order, .mine { grid-template-columns: 64px minmax(0, 1fr); }
+  .order .thumb, .mine .thumb { width: 64px; height: 64px; }
+  .order-side { grid-column: 1 / -1; }
+}
+.contact .btn-whatsapp { font-family: var(--sans); font-weight: 700; }
+
+/* On phones app.css hides the light outline buttons in the top bar; Log out must stay here */
+@media (max-width: 560px) { .topbar #logoutBtn { display: inline-flex; } }
+
+/* Supply offers: a small label above the title */
+.kind { display: inline-block; margin-bottom: 4px; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+  background: color-mix(in srgb, var(--maize) 22%, transparent); color: var(--ink); }
+
+/* One-line explanation at the top of each tab */
+.tab-help { max-width: 70ch; padding: 10px 14px; border-radius: var(--radius); background: var(--surface-2); color: var(--ink-2); font-size: 0.93rem; }

@@ -1,0 +1,106 @@
+/* =========================================================
+   Listing details page (/listing/<id>/). Uses tokens and pieces from app.css.
+   Desktop: photos and details on the left, offer box and farmer on the right.
+   Phone: one column, with the price and offer button fixed at the bottom.
+   ========================================================= */
+
+.lp { padding-top: 18px; padding-bottom: 60px; }
+.back { display: inline-block; margin-bottom: 14px; color: var(--ink-2); font-weight: 600; text-decoration: none; }
+.back::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); vertical-align: 1px; }
+.back:hover { color: var(--green); }
+.lp-loading { color: var(--ink-2); padding: 40px 0; }
+
+.lp-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 22px 36px; align-items: start;
+  grid-template-areas: "gallery side" "info side";
+}
+.lp-gallery { grid-area: gallery; }
+.lp-info { grid-area: info; display: grid; gap: 18px; }
+.lp-side { grid-area: side; display: grid; gap: 18px; position: sticky; top: 76px; }
+
+/* Photos */
+.gal-main { position: relative; margin: 0; border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); aspect-ratio: 16 / 10; }
+.gal-main img { width: 100%; height: 100%; object-fit: cover; }
+.gal-main .photo-note { position: absolute; left: 12px; bottom: 12px; right: auto; font-size: 0.8rem; padding: 4px 10px; }
+.gal-main .tag { top: 14px; left: 14px; font-size: 0.88rem; padding: 6px 12px; }
+.gal-thumbs { display: flex; gap: 10px; margin-top: 10px; }
+.gal-thumb { width: 92px; aspect-ratio: 16 / 10; padding: 0; border: 2px solid transparent; border-radius: 12px; overflow: hidden; cursor: pointer; background: none; opacity: 0.7; }
+.gal-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.gal-thumb[aria-pressed="true"] { border-color: var(--green); opacity: 1; }
+
+/* Title and price */
+.lp-place { color: var(--ink-2); font-weight: 600; }
+.lp-info h1 { font-size: clamp(1.8rem, 3.6vw, 2.6rem); font-weight: 800; letter-spacing: -0.015em; margin-top: -10px; }
+.lp-info h1 .variety { font-weight: 500; }
+.lp-price { display: flex; align-items: baseline; gap: 8px; margin-top: -6px; }
+.lp-price .price-n { font-size: 2.2rem; }
+
+.lp-fair { display: grid; gap: 8px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+.lp-fair-note { font-size: 0.9rem; color: var(--ink-2); }
+
+.lp-desc h2, .lp-farmer h3, .lp-more h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+.lp-desc p { max-width: 64ch; }
+
+.lp-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0; margin: 0; border-top: 1px solid var(--line); }
+.lp-facts div { padding: 12px 0; border-bottom: 1px solid var(--line); padding-right: 12px; }
+.lp-facts dt { font-family: var(--mono); font-size: 0.76rem; color: var(--ink-2); }
+.lp-facts dd { margin: 2px 0 0; font-weight: 600; }
+
+.lp-share { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lp-share .btn-whatsapp { font-family: var(--sans); font-weight: 700; }
+.link-btn { background: none; border: 0; padding: 4px; cursor: pointer; font: inherit; color: var(--green); font-weight: 600; text-decoration: underline; }
+.link-btn.report { color: var(--ink-2); font-size: 0.88rem; margin-left: auto; }
+
+/* Offer box */
+.offer-box { display: grid; gap: 14px; padding: 20px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -28px rgba(15, 42, 22, 0.45); }
+.offer-box h2 { font-size: 1.3rem; }
+.offer-box .form-error a { color: inherit; font-weight: 700; }
+
+/* Farmer */
+.lp-farmer { display: grid; gap: 14px; padding: 20px; border-radius: var(--radius-lg); background: var(--surface-2); }
+.farmer-head { display: flex; gap: 12px; align-items: center; }
+.farmer-head h2 { font-size: 1.2rem; }
+.farmer-head p { color: var(--ink-2); font-size: 0.9rem; }
+.avatar-lg { width: 52px; height: 52px; font-size: 1.3rem; grid-row: auto; }
+.trust { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; padding: 12px; border-radius: var(--radius); }
+.trust .ico { flex: none; width: 20px; height: 20px; margin-top: 1px; }
+.trust-yes { background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--ink); }
+.trust-yes .ico { color: var(--green); }
+.trust-no { background: color-mix(in srgb, var(--maize) 18%, transparent); color: var(--ink); }
+.record { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.record > div { display: grid; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); font-size: 0.85rem; color: var(--ink-2); }
+.record .big { font-family: var(--mono); font-size: 1.5rem; color: var(--ink); }
+.record .stars { color: #c99a14; }
+.reviews { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.reviews li { display: grid; gap: 2px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.reviews li:last-child { border-bottom: 0; padding-bottom: 0; }
+.reviews .stars { color: #c99a14; }
+.reviews p { font-style: italic; }
+.reviews span:last-child { font-size: 0.82rem; color: var(--ink-2); }
+
+/* More listings */
+.lp-more { margin-top: 40px; }
+.mini-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.mini { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; padding: 10px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 0.92rem; }
+.mini:hover { border-color: var(--green); }
+.mini img { width: 96px; height: 64px; object-fit: cover; border-radius: 10px; }
+.mini-price { font-family: var(--mono); font-weight: 500; }
+.mini-place { color: var(--ink-2); font-size: 0.84rem; }
+
+/* Phone bar */
+.lp-bar { display: none; }
+
+@media (max-width: 960px) {
+  .lp-grid { grid-template-columns: 1fr; grid-template-areas: "gallery" "info" "side"; }
+  .lp-side { position: static; }
+  .lp-bar:not([hidden]) {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(15, 42, 22, 0.12);
+  }
+  .lp-bar strong { font-family: var(--mono); font-weight: 500; font-size: 1.2rem; }
+  .lp-bar span { color: var(--ink-2); font-size: 0.9rem; }
+  .lp { padding-bottom: 100px; }
+  .toast { bottom: 84px; }
+}

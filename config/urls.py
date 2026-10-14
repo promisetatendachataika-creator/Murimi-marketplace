@@ -11,6 +11,6 @@ from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),   # staff back office
-    path("", include("web.urls")),     # the marketplace page at /
-    # Later: path("api/", include("listings.urls")), ...
+    path("api/", include("core.urls")),  # JSON for the pages' JavaScript (api.js)
+    path("", include("web.urls")),     # the marketplace pages: /, /login/, /listing/101/ ...
 ]

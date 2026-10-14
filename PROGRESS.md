@@ -35,4 +35,117 @@ Paste this file into a new chat to continue where we left off.
 
 **Note:** the map image came from Promise. Confirm we may use it publicly before going live.
 
-**Next:** Lesson 3: the first real JSON endpoint (`/api/health/`), then Users. After that, swap `api.js` functions to real `fetch()` calls one by one.
+## Front-end tweaks (14 Oct 2026)
+- All emojis removed; close, verified tick and rating star are now small SVG icons.
+- Listing cards, the offer sheet and buyer requests use real crop photos (`web/static/web/img/crops/*.webp`, 9 to 44 KB each, lazy-loaded).
+- Cards say "Example photo" until farmers upload their own (Lesson 7: `photo_url` replaces it automatically).
+- Maize and Sugar beans photos added (14 Oct). Every crop now has a photo.
+- Before going live: the maize photo has a stock-site watermark, so replace it with our own or a licensed photo.
+- Tobacco and Cotton are back in the crop chips, with one sample listing each.
+- Tests: 5 (added "crop photos exist" and "no emoji on the page").
+
+## Coming soon + poultry (14 Oct 2026)
+- **Coming soon listings:** a farmer can list produce that will be ready within 14 days (`READY_WINDOW_DAYS`). Cards show "Coming soon: 2 weeks away" (weeks rounded up; 1 to 3 days shown in days), the Ready line shows the date and days, the button says "Reserve for <date>", and the offer sheet becomes a reservation. Filter "When": Any time / Ready now / Coming soon.
+- Rule (checked in api.js now, and on the server later): `available_from` must be between today and today + 14 days. Listings further away are hidden and refused.
+- **Poultry:** new `POULTRY = ["Broilers", "Eggs"]` list next to the Hub's CROPS. The Hub's choices.py must get the same list when we link the two.
+- New units: `bird` and `tray_30` (tray of 30 eggs). Each product only offers units that fit (`PRODUCT_UNITS`): broilers per bird or kg, eggs per tray.
+- Card wording: eggs say "Collected", broilers "Ready since", crops "Harvested".
+- Sample market prices for broilers and eggs (made up, for the demo).
+- Tests: 5, now checking 11 product photos.
+- **For the database lesson:** a listing needs `available_from` (date) and the server works out `ready_in_days`; no extra status is needed.
+
+## Log-in page (14 Oct 2026)
+- New page in the style Promise chose: white card, form on the left, cut-paper waves over leaves on the right. On phones the leaves fill the screen behind a frosted-glass card.
+- URLs: `/login/`, `/register/`, `/forgot/` -> `web/views.py:account_page()` -> `web/templates/web/login.html`. `?next=` only allows our own pages (stops "open redirect" tricks).
+- Files: `web/static/web/auth.js` (the forms), `auth.css` (the look), `img/leaves.webp` (35 KB).
+- Flows (demo data in api.js, same JSON shape as the future server):
+  - Log in with WhatsApp number (any format: 0771234567, +263 77...) or username. Demo account: 077 123 4567 or `tendai`, password `murimi2026`.
+  - Create account: Sell / Buy / Both, name, WhatsApp number, optional username, password -> 6-digit WhatsApp code (demo code 123456) -> logged in.
+  - Forgot password: number -> code -> new password.
+- Security habits already in the page: same error for wrong number or wrong password; 5 tries then "wait 15 minutes"; "forgot" answers the same whether or not the number has an account; password needs 8+ characters and not only numbers.
+- Main page: "Log in" now links to /login/; when logged in the top bar shows "Hi, Name" and Log out.
+- No Google or Microsoft log-in buttons: our accounts are WhatsApp numbers, like the Hub.
+- Tests: 8.
+
+## Bug fix: map pins and province list disappeared (14 Oct 2026)
+- **Symptom:** no pins on the map, Province list only "All provinces".
+- **Cause (reproduced):** the browser kept an OLD saved copy of `api.js` while loading the NEW `app.js`. The new app.js called `MarketAPI.me()` and `meta.products`, which the old file doesn't have, so start-up stopped before the menus and pins were built.
+- **Fix 1, cache busting:** new template tag `{% asset 'web/app.js' %}` (`web/templatetags/asset_tags.py`) adds `?v=<time the file changed>` to every CSS/JS address, so a changed file always gets fetched fresh.
+- **Fix 2, sturdier start-up:** `app.js start()` runs each part in `step()`. If one part fails, the rest still works and the error appears in the browser console (F12) as `[Murimi] ... failed`.
+- **Lesson:** after a new Python file (like a template tag), restart the server.
+
+## My account page (14 Oct 2026)
+- New page `/account/` -> `views.my_account()` -> `account.html` + `account.js` + `account.css`. Logged-out visitors go to `/login/?next=/account/`.
+- Tabs by role: farmers see **Offers on my produce** and **My listings**; buyers see **My orders**; "both" sees all three. The demo account Tendai is now "both".
+- Offers are grouped: Waiting for your answer / Accepted / Finished, each with a Sent -> Accepted -> Completed track.
+- **Status rules** (`TRANSITIONS` in api.js, the server will copy it): accept and decline = farmer, only from pending; cancel = buyer, only from pending; complete = either side, only from accepted. Anything else is refused (403 or 409).
+- **Accept lowers the quantity left**, and refuses if not enough is left ("Only 64 left, but this offer asks for 70"). Server version: `transaction.atomic()` + `select_for_update()`.
+- **Contact reveal:** the other side's WhatsApp number is only sent by the API after "accepted", with an Open WhatsApp button and a ready-written message.
+- **Ratings:** after "completed", each side rates the other once (1 to 5 stars and a comment).
+- My listings: on the market / coming soon / draft / sold out, quantity left, sold so far, offers waiting, Mark sold out. Edit is a placeholder for now.
+- Decline, cancel, complete and sold out ask "Yes, ..." once before doing it (no browser pop-ups).
+- Main page: sending an offer needs log-in; offers sent from the main page appear in My account; the top bar shows "My account".
+- Demo data is saved in the browser; "Put the sample offers back" resets it.
+- Tidy-up for later: account.js repeats a few helpers from app.js (photos, units); move them into one shared file.
+- Tests: 10.
+
+## Listing details page (14 Oct 2026)
+- New page `/listing/<id>/` (e.g. `/listing/101/`) -> `views.listing_page()` -> `listing.html` + `listing.js` + `listing.css`. `<int:listing_id>` in urls.py means `/listing/abc/` is a 404 before our code runs.
+- Each listing has its own address, so it can be shared on WhatsApp ("Share on WhatsApp" and "Copy link" buttons). The browser tab title shows crop, variety and price.
+- Shows: photo gallery (farmer's photos, or one example photo clearly labelled), price, fair-price meter **with a plain explanation**, the farmer's description, facts (available, harvested or ready, grade, where, getting it, listed), offer form (or reservation for coming soon), farmer profile (member since, Murimi Verified explained or a safety warning if not verified, completed orders, average rating, reviews), more from this farmer, other listings of the same crop.
+- Phones: price and "Make an offer" stay fixed at the bottom of the screen.
+- Your own listing shows "This is your listing" instead of the offer form; sold out shows "Sold out"; missing listings show a friendly "We can't find that listing".
+- API: `MarketAPI.getListing(id)` (later `GET /api/listings/<id>/`). It never includes the farmer's phone number, and hides drafts from everyone except the owner.
+- Main page: card photos and titles now open the listing page.
+- New shared helpers file `common.js` (used by the listing page; app.js and account.js move onto it later).
+- Sample farmer photos for listing 101 in `img/sample/`.
+- Tests: 13.
+
+## Complete Sell form (14 Oct 2026)
+- The Sell form now has 6 labelled parts: What (product, variety, quantity, unit), Price (US$, optional ZiG, live market check), When (ready now + harvested/collected date, or ready within 2 weeks + ready date; must sell today), Where (province, district, and how buyers get it: collect / I deliver / both), Photos (up to 3), Description (up to 500 characters with a counter).
+- **Save as draft** (can be half-finished, only the farmer sees it in My account) or **Publish listing** (everything required).
+- **Photos are shrunk in the browser** before sending: max 1280 px, JPEG 72%. A 1.3 MB phone photo became about 120 KB. Only JPG, PNG and WebP up to 10 MB are accepted; the server will check the file bytes again (same rule as the Hub's documents app).
+- Selling needs log-in: logged-out farmers go to `/login/?next=/#sell` and the form opens when they come back. Buyer-only accounts are told selling needs a farmer account.
+- `MarketAPI.createListing()` checks every field and answers with per-field errors (later `POST /api/listings/`). The farmer's name and verified badge come from their account, never from the form.
+- New listings appear on the market (first in their crop), on the map counts, on their own listing page with the farmer's photos, and in My listings. Drafts only in My listings.
+- ZiG prices show next to US$ on cards and the listing page when given.
+- Tests: 14.
+
+## Buyer requests: post, supply, accept (14 Oct 2026)
+- **Post what you need** (buyers): product, grade, quantity, unit, needed by (tomorrow to 3 months), how often (once / every week / every 2 weeks / every month), province and area, delivery or collection, most you'll pay (optional, with today's market price shown), note.
+- **Offer to supply** (farmers): all of a request **or part of it** (light pooling: several small farms fill one big order), own price, ready date (up to 14 days), grade, message.
+- **One set of rules for both kinds of offer:** `TRANSITIONS` now says *receiver* accepts or declines, *sender* cancels, either completes. A normal offer: buyer sends, farmer receives. A supply offer: farmer sends, buyer receives (`proposed_by: "farmer"`). The server will store the same field.
+- Accepting a supply offer adds to the request's "filled" amount and is refused if it's more than still needed.
+- My account: groups are now *Waiting for your answer* / *Waiting for the other side* / *Accepted* / *Finished*; supply offers carry a label; new **My requests** tab (fill bar, offers waiting, Close request).
+- Market page: requests show area, how often, delivery, the most the buyer pays, and notes; your own request shows "Your request: see offers"; empty search results offer "Post what you need".
+- Titles read naturally: "10 trays of 30 eggs", "40 broilers", "20 bags of 50 kg of maize".
+- Tests: 16.
+
+## Second pass: trust and weak connections (14 Oct 2026)
+- **Old market prices:** a price older than 7 days (`PRICE_FRESH_DAYS`) is not compared. Cards, the listing page, the Sell form and the request form say "Market price is out of date: the last ... was ... 12 days ago. Too old to compare."
+- **Filters in the page address:** `/?crop=Maize&province=Mashonaland+West`. Refreshing keeps your search; a shared link opens the same view; Back and Forward work.
+- **Share on WhatsApp** link on every card (opens WhatsApp with the crop, price, place and the listing's link).
+- **Loading and no connection:** grey placeholder cards while loading; "We couldn't load the produce. Check your connection ... Try again" for listings and buyer requests. Practise with `/?demo=offline` and `/?demo=slow`.
+- **Show more:** 12 listings at a time (SQL later: `LIMIT 12 OFFSET 12`), with "20 listings, showing 12" and "Show more (8 more)".
+- **Honest count:** the hero says "listings open now" instead of "listings this week".
+- **Must sell today** listings show "until 6 pm" (`SELL_TODAY_ENDS_HOUR`) and leave the market after 6 pm on the day they were listed.
+- **My account:** one plain sentence at the top of each tab saying what it's for.
+- Sample market prices now use dates relative to today, so the demo doesn't go out of date.
+- **Bug found and fixed while testing:** Show more stopped at 12 with "Cannot read properties of null (reading 'stale')". The new old-price check ran before the "is there a price at all?" check, and listings with no price (tobacco, cotton) were on page 2. Fix: check the price exists first.
+- Tests: 18.
+
+## Lesson 3: first JSON endpoint `/api/health/` (14 Oct 2026)
+Full notes: `docs/lessons/03-first-endpoint.md`.
+
+**Finished**
+- New app `core`: `api.py` (`health()`, JSON `not_found()`, JSON `csrf_failure()`), `http.py` (`json_error()`, `@allow()`), `urls.py`, `tests.py` (8 tests).
+- `GET /api/health/` runs `SELECT 1` and answers `{"status": "ok", "database": "ok", "database_engine": "sqlite", "server_time": ..., "version": "0.1"}`; 503 if the database is down.
+- Every `/api/` failure uses the Hub's shape `{"error", "errors"}`: 403 (CSRF), 404 (unknown address), 405 (wrong method, with `Allow` header).
+- `api.js` made its first real `fetch()`; the main page footer shows "Server: connected. Database: sqlite".
+
+**Learned**
+- Request path: middleware → `config/urls.py` → `core/urls.py` → `@allow` → `health()` → SQL → `JsonResponse`.
+- HTTP status codes 200, 400, 401, 403, 404, 405, 409, 503 and what each means.
+- **Middleware runs before views:** a POST with no CSRF token never reaches our code. Found because Django's test client turns CSRF checks off; fixed with `CSRF_FAILURE_VIEW` and tests using `enforce_csrf_checks=True`.
+
+**Next:** move the project out of OneDrive; then Lesson 4: Users (custom User with phone + username, roles; SQL vs model vs migration; register, log in, log out with sessions and CSRF). Remember: delete `db.sqlite3` before the first migration of the custom User.

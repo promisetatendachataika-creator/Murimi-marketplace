@@ -1,0 +1,71 @@
+{% load static asset_tags %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My account: Murimi Market</title>
+  <meta name="theme-color" content="#0f2a16">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="{% asset 'web/app.css' %}">
+  <link rel="stylesheet" href="{% asset 'web/account.css' %}">
+  <script>
+    try { var t = localStorage.getItem("murimi-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body data-static="{% static 'web/' %}">
+  <a class="skip" href="#main">Skip to your account</a>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Murimi Market home">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c4 4 6 8 6 13s-2 9-6 13c-4-4-6-8-6-13s2-9 6-13Z" fill="#e8b931"/><path d="M16 7v21M16 13l-3.5-2.5M16 13l3.5-2.5M16 18l-3.5-2.5M16 18l3.5-2.5M16 23l-3.5-2.5M16 23l3.5-2.5" stroke="#0f2a16" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Murimi <b>Market</b></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/#browse">Buy produce</a>
+      <a href="/#requests">Buyer requests</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to dark mode" title="Light or dark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7 1.4-1.4M4.9 19.1l1.4-1.4m0-11.4L4.9 4.9m14.2 14.2-1.4-1.4M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+      <button class="btn btn-ghost-light" type="button" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <main id="main" class="acct" aria-busy="true">
+    <section class="acct-head">
+      <div class="wrap acct-head-inner">
+        <div>
+          <h1 id="hello">Your account</h1>
+          <p class="acct-who" id="whoLine"></p>
+        </div>
+        <p class="acct-summary" id="summary" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <div class="acct-tabs" role="tablist" aria-label="Your account">
+        <button role="tab" id="tab-offers" aria-controls="panel-offers" aria-selected="true" type="button" data-for="farmer">Offers on my produce <span class="count" id="countOffers"></span></button>
+        <button role="tab" id="tab-listings" aria-controls="panel-listings" aria-selected="false" tabindex="-1" type="button" data-for="farmer">My listings</button>
+        <button role="tab" id="tab-orders" aria-controls="panel-orders" aria-selected="false" tabindex="-1" type="button" data-for="buyer">My orders <span class="count" id="countOrders"></span></button>
+        <button role="tab" id="tab-requests" aria-controls="panel-requests" aria-selected="false" tabindex="-1" type="button" data-for="buyer">My requests</button>
+      </div>
+
+      <section class="acct-panel" id="panel-offers" role="tabpanel" aria-labelledby="tab-offers"></section>
+      <section class="acct-panel" id="panel-listings" role="tabpanel" aria-labelledby="tab-listings" hidden></section>
+      <section class="acct-panel" id="panel-orders" role="tabpanel" aria-labelledby="tab-orders" hidden></section>
+      <section class="acct-panel" id="panel-requests" role="tabpanel" aria-labelledby="tab-requests" hidden></section>
+
+      <p class="demo-reset">Sample data, saved in this browser only. <button class="link-btn" type="button" id="resetDemo">Put the sample offers back</button></p>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="{% asset 'web/mock.js' %}" defer></script>
+  <script src="{% asset 'web/api.js' %}" defer></script>
+  <script src="{% asset 'web/account.js' %}" defer></script>
+</body>
+</html>

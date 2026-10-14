@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static asset_tags %}<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -9,13 +9,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800;900&display=swap">
-  <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  <link rel="stylesheet" href="{% asset 'web/app.css' %}">
   <script>
     /* Set the colour theme before the page paints, so it never flashes. */
     try { var t = localStorage.getItem("murimi-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
   </script>
 </head>
-<body>
+<body data-static="{% static 'web/' %}">
   <a class="skip" href="#browse">Skip to produce</a>
 
   <!-- ===================== Top bar ===================== -->
@@ -33,8 +33,9 @@
       <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to dark mode" title="Light or dark">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7 1.4-1.4M4.9 19.1l1.4-1.4m0-11.4L4.9 4.9m14.2 14.2-1.4-1.4M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
       </button>
-      <button class="btn btn-ghost-light" type="button" data-open="loginDialog">Log in</button>
-      <button class="btn btn-maize" type="button" data-open="sellDialog">Sell produce</button>
+      <a class="btn btn-ghost-light" href="/login/" id="loginLink">Log in</a>
+      <span class="who" id="whoBox" hidden><a id="whoName" href="/account/" title="My account"></a><button class="btn btn-ghost-light" type="button" id="logoutBtn">Log out</button></span>
+      <button class="btn btn-maize" type="button" id="sellBtn">Sell produce</button>
     </div>
   </header>
 
@@ -52,8 +53,8 @@
 
           <form class="hero-search" id="heroSearch" role="search">
             <label>
-              <span class="sr-only">Crop</span>
-              <select name="crop" id="heroCrop"><option value="">Any crop</option></select>
+              <span class="sr-only">Product</span>
+              <select name="crop" id="heroCrop"><option value="">Any product</option></select>
             </label>
             <label>
               <span class="sr-only">Province</span>
@@ -63,7 +64,7 @@
           </form>
 
           <ul class="hero-proof">
-            <li><strong id="statListings">0</strong> listings this week</li>
+            <li><strong id="statListings">0</strong> listings open now</li>
             <li><strong id="statFarmers">0</strong> verified farmers</li>
             <li><strong id="statProvinces">0</strong> provinces</li>
           </ul>
@@ -108,6 +109,14 @@
                 <option value="fair">Best value vs market</option>
               </select>
             </label>
+            <fieldset class="field ready-filter">
+              <legend>When</legend>
+              <div class="seg" id="fReady">
+                <label><input type="radio" name="ready" value="" checked><span>Any time</span></label>
+                <label><input type="radio" name="ready" value="now"><span>Ready now</span></label>
+                <label><input type="radio" name="ready" value="soon"><span>Coming soon</span></label>
+              </div>
+            </fieldset>
             <label class="check">
               <input type="checkbox" name="sell_today" id="fSellToday">
               <span>Sell today only</span>
@@ -117,6 +126,7 @@
 
         <p class="result-count" id="resultCount" aria-live="polite"></p>
         <div class="listing-grid" id="listingGrid"></div>
+        <div class="more-row"><button class="btn btn-outline" type="button" id="loadMore" hidden>Show more</button></div>
       </div>
     </section>
 
@@ -124,8 +134,11 @@
     <section class="section section-tint" id="requests" aria-labelledby="requestsTitle">
       <div class="wrap">
         <div class="section-head">
-          <h2 id="requestsTitle">Buyers looking for produce</h2>
-          <p>Supermarkets, schools and traders post what they need. Too big for one farm? Several farmers in the same area can each supply part of the order.</p>
+          <div>
+            <h2 id="requestsTitle">Buyers looking for produce</h2>
+            <p class="section-lede">Supermarkets, schools and traders post what they need. Too big for one farm? Several farmers can each supply part of it.</p>
+          </div>
+          <button class="btn btn-green" type="button" id="postRequestBtn">Post what you need</button>
         </div>
         <div class="request-list" id="requestList"></div>
       </div>
@@ -160,6 +173,7 @@
       <div>
         <p class="brand brand-footer"><span>Murimi <b>Market</b></span></p>
         <p>Part of Murimi Intelligent Hub. Connecting Zimbabwe's farmers with buyers at fair prices.</p>
+        <p class="server-check" id="serverCheck" aria-live="polite">Checking the server…</p>
       </div>
       <div>
         <p>Questions? Chat to us on WhatsApp</p>
@@ -173,7 +187,7 @@
     <form method="dialog" class="sheet-body" id="offerForm" novalidate>
       <header class="sheet-head">
         <h2 id="offerTitle">Send an offer</h2>
-        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close">✕</button>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       </header>
       <div class="offer-summary" id="offerSummary"></div>
       <label class="field">
@@ -194,51 +208,170 @@
       </label>
       <p class="total" id="offerTotal"></p>
       <p class="form-error" id="offerError" role="alert"></p>
-      <button class="btn btn-green btn-block" value="send" type="submit">Send offer</button>
-      <p class="fine">Nothing is paid now. The farmer's number is shared after they accept.</p>
+      <button class="btn btn-green btn-block" value="send" type="submit" id="offerSend">Send offer</button>
+      <p class="fine" id="offerFine">Nothing is paid now. The farmer's number is shared after they accept.</p>
     </form>
   </dialog>
 
-  <dialog class="sheet" id="sellDialog" aria-labelledby="sellTitle">
+  <dialog class="sheet sheet-wide" id="sellDialog" aria-labelledby="sellTitle">
     <form method="dialog" class="sheet-body" id="sellForm" novalidate>
       <header class="sheet-head">
         <h2 id="sellTitle">List your produce</h2>
-        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close">✕</button>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       </header>
-      <div class="grid-2">
-        <label class="field"><span>Crop</span><select name="crop" id="sellCrop" required></select></label>
-        <label class="field"><span>Variety or grade</span><input name="variety" maxlength="60" placeholder="e.g. Roma, grade A"></label>
-        <label class="field"><span>Quantity</span><input name="quantity" type="number" min="1" step="1" inputmode="numeric" required></label>
-        <label class="field"><span>Unit</span><select name="unit" id="sellUnit" required></select></label>
-        <label class="field"><span>Price per unit (US$)</span><input name="price" id="sellPrice" type="number" min="0.1" step="0.1" inputmode="decimal" required></label>
-        <label class="field"><span>Available from</span><input name="available" type="date" required></label>
-        <label class="field"><span>Province</span><select name="province" id="sellProvince" required></select></label>
-        <label class="field"><span>District or area</span><input name="district" maxlength="60" placeholder="e.g. Murehwa" required></label>
-      </div>
-      <div class="price-check" id="sellPriceCheck" aria-live="polite"></div>
-      <label class="check"><input type="checkbox" name="sell_today"><span>Must sell today (perishable, lower price)</span></label>
+
+      <fieldset class="sell-part">
+        <legend>What are you selling?</legend>
+        <div class="grid-2">
+          <label class="field"><span>Product</span><select name="crop" id="sellCrop" required></select></label>
+          <label class="field"><span>Variety or grade</span><input name="variety" maxlength="60" placeholder="e.g. Roma, grade A"></label>
+          <label class="field"><span>Quantity</span><input name="quantity" type="number" min="1" step="1" inputmode="numeric" required></label>
+          <label class="field"><span>Unit</span><select name="unit" id="sellUnit" required></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="sell-part">
+        <legend>Price</legend>
+        <div class="grid-2">
+          <label class="field"><span>Price per unit (US$)</span><input name="price" id="sellPrice" type="number" min="0.1" step="0.1" inputmode="decimal" required></label>
+          <label class="field"><span>Price in ZiG (optional)</span><input name="price_zig" type="number" min="0" step="1" inputmode="decimal" placeholder="Leave empty for US$ only"></label>
+        </div>
+        <div class="price-check" id="sellPriceCheck" aria-live="polite"></div>
+      </fieldset>
+
+      <fieldset class="sell-part">
+        <legend>When</legend>
+        <div class="seg" id="sellWhen" role="radiogroup" aria-label="Is it ready to sell?">
+          <label><input type="radio" name="when" value="now" checked><span>Ready now</span></label>
+          <label><input type="radio" name="when" value="soon"><span>Ready within 2 weeks</span></label>
+        </div>
+        <div class="grid-2">
+          <label class="field" id="sellHarvestField"><span id="sellHarvestLabel">Harvested on</span><input name="harvested_on" id="sellHarvest" type="date"><small class="hint">Buyers trust fresh produce more when they can see the date.</small></label>
+          <label class="field" id="sellDateField" hidden><span>Ready on</span><input name="available" id="sellDate" type="date"><small class="hint">Up to 2 weeks from today. Buyers see "Coming soon" and can reserve it.</small></label>
+        </div>
+        <label class="check" id="sellTodayField"><input type="checkbox" name="sell_today"><span>Must sell today (perishable, lower price)</span></label>
+      </fieldset>
+
+      <fieldset class="sell-part">
+        <legend>Where, and how buyers get it</legend>
+        <div class="grid-2">
+          <label class="field"><span>Province</span><select name="province" id="sellProvince" required></select></label>
+          <label class="field"><span>District or area</span><input name="district" maxlength="60" placeholder="e.g. Murehwa" required></label>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="How buyers get it">
+          <label><input type="radio" name="delivery" value="both" checked><span>Collect or I deliver</span></label>
+          <label><input type="radio" name="delivery" value="pickup"><span>Buyer collects</span></label>
+          <label><input type="radio" name="delivery" value="delivery"><span>I deliver</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="sell-part">
+        <legend>Photos (up to 3)</legend>
+        <div class="photo-pick" id="photoPick">
+          <label class="photo-add" id="photoAdd">
+            <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" multiple>
+            <span><strong>Add photos</strong>Take them in daylight. Show the actual produce.</span>
+          </label>
+        </div>
+        <small class="hint">We make each photo small before sending, to save your data.</small>
+      </fieldset>
+
+      <fieldset class="sell-part">
+        <legend>Describe it for buyers</legend>
+        <label class="field"><span class="sr-only">Description</span>
+          <textarea name="description" id="sellDesc" rows="3" maxlength="500" placeholder="Size, quality, how it's packed, when buyers can collect, how far you deliver."></textarea>
+          <small class="hint"><span id="descCount">0</span> of 500 characters</small>
+        </label>
+      </fieldset>
+
       <p class="form-error" id="sellError" role="alert"></p>
-      <button class="btn btn-green btn-block" value="send" type="submit">Publish listing</button>
-      <p class="fine">Demo only for now: the listing isn't saved until we build the listings API.</p>
+      <div class="sell-actions">
+        <button class="btn btn-outline" value="draft" type="submit">Save as draft</button>
+        <button class="btn btn-green" value="publish" type="submit">Publish listing</button>
+      </div>
+      <p class="fine">A draft is only visible to you, in My account. Demo: listings are saved in this browser until the real database is built.</p>
     </form>
   </dialog>
 
-  <dialog class="sheet sheet-small" id="loginDialog" aria-labelledby="loginTitle">
-    <form method="dialog" class="sheet-body">
+
+
+  <!-- ===================== Buyer: post a request ===================== -->
+  <dialog class="sheet sheet-wide" id="requestDialog" aria-labelledby="requestTitle">
+    <form method="dialog" class="sheet-body" id="requestForm" novalidate>
       <header class="sheet-head">
-        <h2 id="loginTitle">Log in</h2>
-        <button class="icon-btn" value="cancel" aria-label="Close">✕</button>
+        <h2 id="requestTitle">Tell farmers what you need</h2>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       </header>
-      <p>Log-in with your WhatsApp number or username comes in the Users lesson. It will use the same account rules as Murimi Intelligent Hub.</p>
-      <button class="btn btn-green btn-block" value="cancel">Got it</button>
+      <p class="sheet-lede">Farmers near you see your request and offer to supply all of it, or part of it. You choose whose offers to accept.</p>
+      <fieldset class="sell-part">
+        <legend>What do you need?</legend>
+        <div class="grid-2">
+          <label class="field"><span>Product</span><select name="crop" id="reqCrop" required></select></label>
+          <label class="field"><span>Grade or type (optional)</span><input name="grade" maxlength="60" placeholder="e.g. Roma, grade A"></label>
+          <label class="field"><span>Quantity</span><input name="quantity" type="number" min="1" step="1" inputmode="numeric" required></label>
+          <label class="field"><span>Unit</span><select name="unit" id="reqUnit" required></select></label>
+        </div>
+      </fieldset>
+      <fieldset class="sell-part">
+        <legend>When and how often</legend>
+        <div class="grid-2">
+          <label class="field"><span>Needed by</span><input name="needed_by" id="reqDate" type="date" required></label>
+          <label class="field"><span>How often</span><select name="repeat" id="reqRepeat" required></select></label>
+        </div>
+      </fieldset>
+      <fieldset class="sell-part">
+        <legend>Where</legend>
+        <div class="grid-2">
+          <label class="field"><span>Province</span><select name="province" id="reqProvince" required></select></label>
+          <label class="field"><span>Town or area</span><input name="district" maxlength="60" placeholder="e.g. Avondale"></label>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Delivery">
+          <label><input type="radio" name="delivery" value="delivery" checked><span>Deliver to me</span></label>
+          <label><input type="radio" name="delivery" value="pickup"><span>I'll collect</span></label>
+          <label><input type="radio" name="delivery" value="either"><span>Either</span></label>
+        </div>
+      </fieldset>
+      <fieldset class="sell-part">
+        <legend>Price and notes</legend>
+        <label class="field"><span>Most you'll pay per unit, US$ (optional)</span><input name="max_price" id="reqMax" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="Leave empty to hear farmers' prices"></label>
+        <div class="price-check" id="reqPriceCheck" aria-live="polite"></div>
+        <label class="field"><span>Note for farmers (optional)</span><textarea name="note" rows="2" maxlength="300" placeholder="Quality, packing, delivery times."></textarea></label>
+      </fieldset>
+      <p class="form-error" id="reqError" role="alert"></p>
+      <button class="btn btn-green btn-block" type="submit" value="send">Post my request</button>
+    </form>
+  </dialog>
+
+  <!-- ===================== Farmer: offer to supply a request ===================== -->
+  <dialog class="sheet" id="supplyDialog" aria-labelledby="supplyTitle">
+    <form method="dialog" class="sheet-body" id="supplyForm" novalidate>
+      <header class="sheet-head">
+        <h2 id="supplyTitle">Offer to supply</h2>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Close"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </header>
+      <div class="offer-summary" id="supplySummary"></div>
+      <div class="grid-2">
+        <label class="field"><span>How much can you supply?</span>
+          <div class="qty-row"><input name="quantity" id="supQty" type="number" min="1" step="1" inputmode="numeric" required><span class="unit" id="supUnit"></span></div>
+          <small class="hint" id="supHint"></small></label>
+        <label class="field"><span>Your price per unit (US$)</span><input name="price" id="supPrice" type="number" min="0.1" step="0.1" inputmode="decimal" required>
+          <small class="hint" id="supPriceHint"></small></label>
+        <label class="field"><span>Ready on</span><input name="ready_on" id="supDate" type="date" required></label>
+        <label class="field"><span>Grade or type</span><input name="variety" maxlength="60" placeholder="e.g. Roma, grade A"></label>
+      </div>
+      <label class="field"><span>Message to the buyer (optional)</span><textarea name="message" rows="2" maxlength="300" placeholder="For example: I can bring the rest next week."></textarea></label>
+      <p class="total" id="supTotal"></p>
+      <p class="form-error" id="supError" role="alert"></p>
+      <button class="btn btn-green btn-block" type="submit" value="send">Send my offer</button>
+      <p class="fine">You can offer part of the amount. The buyer accepts or declines; you get their WhatsApp number when they accept.</p>
     </form>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <!-- Order matters: data first, then the "waiter" that fetches it, then the page logic. -->
-  <script src="{% static 'web/mock.js' %}" defer></script>
-  <script src="{% static 'web/api.js' %}" defer></script>
-  <script src="{% static 'web/app.js' %}" defer></script>
+  <script src="{% asset 'web/mock.js' %}" defer></script>
+  <script src="{% asset 'web/api.js' %}" defer></script>
+  <script src="{% asset 'web/app.js' %}" defer></script>
 </body>
 </html>
