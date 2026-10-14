@@ -21,17 +21,18 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
 
-from core.http import (allow, clear_failures, client_ip, json_error, rate_limited, read_json,
-                       record_failure, too_many_failures)
+from core.http import allow, client_ip, json_error, rate_limited, read_json, throttle  # noqa: F401
 
+from .backends import locked_out
 from .choices import ROLE_CHOICES
 from .models import PhoneCode, User
 from .phone import try_normalize_phone
 from .whatsapp import send_code
 
-LOGIN_LIMIT, LOGIN_WINDOW = 5, 15 * 60          # 5 tries per 15 minutes
 RESEND_GAP = 60                                 # seconds between codes to one number
 CODES_PER_HOUR = 5
+CODES_PER_IP_HOUR = 20
+SIGNUPS_PER_IP_HOUR = 20
 USERNAME_RE = re.compile(r"^[a-z0-9_]{3,30}$")
 
 # Where the session remembers who is waiting for a code
@@ -44,6 +45,10 @@ def _send_new_code(request, phone, purpose):
         return json_error("Please wait a minute before asking for another code.", status=429)
     if rate_limited(f"code-hour:{phone}", CODES_PER_HOUR, 3600):
         return json_error("Too many codes for this number. Please try again in an hour.", status=429)
+    # Each WhatsApp message can cost money, and codes to other people's numbers are a nuisance:
+    # one network address may ask for only so many codes per hour, whichever numbers it types.
+    if rate_limited(f"code-ip:{client_ip(request)}", CODES_PER_IP_HOUR, 3600):
+        return json_error("Too many codes requested from this connection. Please try again in an hour.", status=429)
     code = PhoneCode.issue(phone, purpose)
     send_code(phone, code, purpose)
     request.session[SESSION_PHONE] = phone
@@ -72,19 +77,14 @@ def login_view(request):
     if errors:
         return json_error("Please check the form.", errors=errors)
 
-    # Only WRONG tries count: 5 per account, 20 per network address, within 15 minutes.
-    # (A farmer logging in on two phones in one morning must not be locked out.)
-    per_account = f"login-fail:{identifier.lower()}"
-    per_address = f"login-fail-ip:{client_ip(request)}"
-    if too_many_failures(per_account, LOGIN_LIMIT) or too_many_failures(per_address, LOGIN_LIMIT * 4):
+    # The counting of wrong tries lives in accounts/backends.py (so /admin/ is protected too);
+    # here we only turn a lock-out into a friendly message.
+    if locked_out(request, identifier):
         return json_error("Too many tries. Please wait 15 minutes and try again.", status=429)
 
     user = authenticate(request, username=identifier, password=password)
     if user is None:
-        record_failure(per_account, LOGIN_WINDOW)
-        record_failure(per_address, LOGIN_WINDOW)
         return json_error("That number, username, email or password isn't right.")
-    clear_failures(per_account)                  # a correct log-in wipes this account's count
     login(request, user)                         # sets the session cookie
     return JsonResponse({"user": user.as_json()})
 
@@ -107,6 +107,9 @@ def register(request):
     password = str(data.get("password", ""))
     role = str(data.get("role", ""))
 
+    over = throttle(request, "signup", SIGNUPS_PER_IP_HOUR, 3600, "Too many sign-ups from this connection. Please try again in an hour.")
+    if over:
+        return over
     errors = {}
     if not name:
         errors["name"] = "Tell us your name."
@@ -124,12 +127,15 @@ def register(request):
         except ValidationError:
             errors["email"] = "That doesn't look like an email address."
 
-    # An unconfirmed sign-up (is_active False) may be replaced; a confirmed account may not.
+    # An UNFINISHED sign-up (never confirmed with a WhatsApp code) may be replaced. A confirmed account may
+    # not, and neither may a BLOCKED one: otherwise a blocked person could register again, confirm the code
+    # on their own phone and be switched back on.
     existing = User.objects.filter(phone=phone).first() if phone else None
     if existing and existing.is_active:
         errors["phone"] = "This number already has an account. Try logging in."
-    # Only an UNFINISHED sign-up for this same number may keep its own username/email.
-    replaceable = existing.pk if existing and not existing.is_active else None
+    elif existing and existing.phone_verified_at:
+        errors["phone"] = "This number can't be used to sign up. WhatsApp us on +263 78 257 3320 and we'll help."
+    replaceable = existing.pk if existing and not existing.is_active and not existing.phone_verified_at else None
     if username and User.objects.filter(username=username).exclude(pk=replaceable).exists():
         errors["username"] = "That username is taken."
     if email and User.objects.filter(email=email).exclude(pk=replaceable).exists():
@@ -175,7 +181,9 @@ def verify(request):
     for key in (SESSION_PHONE, SESSION_PURPOSE):
         request.session.pop(key, None)
     if purpose == PhoneCode.PURPOSE_REGISTER:
-        user = User.objects.get(phone=phone)
+        user = User.objects.filter(phone=phone, phone_verified_at__isnull=True).first()   # only an unfinished sign-up
+        if not user:
+            return json_error("Your code has expired. Please start again.")
         user.is_active = True
         user.phone_verified_at = timezone.now()
         user.save(update_fields=["is_active", "phone_verified_at"])

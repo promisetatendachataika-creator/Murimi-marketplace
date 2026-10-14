@@ -9,6 +9,7 @@ from unittest import mock
 from django.core.cache import cache
 from django.core.management import call_command
 from django.test import Client, TestCase
+from django.utils import timezone
 
 from .models import PhoneCode, User
 from .phone import normalize_phone
@@ -186,3 +187,68 @@ class SeedTests(TestCase):
         self.assertTrue(tendai.check_password("murimi2026"))
         self.assertTrue(tendai.is_verified_farmer)
         self.assertEqual(User.objects.filter(is_superuser=True).count(), 1)
+
+
+class SecurityTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def api(self, c, url, data):
+        return c.post(url, json.dumps(data), content_type="application/json", HTTP_X_CSRFTOKEN=c.cookies["csrftoken"].value)
+
+    def browser(self):
+        c = Client(enforce_csrf_checks=True)
+        c.get("/")
+        return c
+
+    def test_blocked_person_cannot_register_themselves_back_in(self):
+        blocked = User.objects.create_user("+263771110000", "old-pass-123", name="Blocked Bob", role="farmer",
+                                           phone_verified_at=timezone.now())
+        blocked.is_active = False
+        blocked.save()
+        r = self.api(self.browser(), "/api/auth/register/", {"name": "Bob", "phone": "0771110000", "role": "farmer",
+                                                             "password": "A-new-strong-pass-77"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("can't be used", r.json()["errors"]["phone"])
+        blocked.refresh_from_db()
+        self.assertFalse(blocked.is_active)
+        self.assertTrue(blocked.check_password("old-pass-123"))          # password untouched too
+
+    def test_unfinished_signup_can_still_be_redone(self):
+        c = self.browser()
+        body = {"name": "Sam", "phone": "0772220000", "role": "buyer", "password": "A-new-strong-pass-77"}
+        self.assertEqual(self.api(c, "/api/auth/register/", body).status_code, 201)
+        User.objects.get(phone="+263772220000")
+        self.assertEqual(User.objects.filter(phone="+263772220000").count(), 1)
+
+    def test_admin_login_is_locked_after_wrong_tries(self):
+        staff = User.objects.create_user("+263780001111", "Right-pass-999", name="Staff", role="", is_staff=True, is_superuser=True)
+        c = Client()
+        for _ in range(5):
+            c.post("/admin/login/", {"username": "+263780001111", "password": "wrong", "next": "/admin/"})
+        r = c.post("/admin/login/", {"username": "+263780001111", "password": "Right-pass-999", "next": "/admin/"})
+        self.assertEqual(r.status_code, 200)                              # login form again: refused
+        self.assertNotIn("_auth_user_id", c.session)
+
+    def test_lockout_counts_all_spellings_of_one_account(self):
+        User.objects.create_user("+263773330000", "Right-pass-999", name="Zed", role="farmer", username="zed", phone_verified_at=timezone.now())
+        c = self.browser()
+        for who in ["0773330000", "+263 77 333 0000", "zed", "263773330000", "ZED"]:
+            self.assertEqual(self.api(c, "/api/auth/login/", {"identifier": who, "password": "wrong"}).status_code, 400)
+        self.assertEqual(self.api(c, "/api/auth/login/", {"identifier": "zed", "password": "Right-pass-999"}).status_code, 429)
+
+    def test_signups_and_codes_limited_per_network_address(self):
+        c = self.browser()
+        results = [self.api(c, "/api/auth/register/", {"name": "N", "phone": f"07744{i:05d}", "role": "buyer",
+                                                      "password": "A-new-strong-pass-77"}).status_code for i in range(22)]
+        self.assertEqual(results[:20], [201] * 20)
+        self.assertEqual(results[20:], [429, 429])           # the same connection can't sign up numbers all day
+
+    def test_forwarded_header_ignored_unless_behind_proxy(self):
+        from django.test import RequestFactory, override_settings
+        from core.http import client_ip
+        req = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="6.6.6.6, 9.9.9.9", REMOTE_ADDR="10.0.0.1")
+        self.assertEqual(client_ip(req), "10.0.0.1")
+        with override_settings(BEHIND_PROXY=True):
+            self.assertEqual(client_ip(req), "9.9.9.9")                   # the entry the proxy added, not the faked one

@@ -59,6 +59,30 @@ ALLOWED_HOSTS = [
 ]
 
 
+# --- Going live: HTTPS, proxies, admin address (all set in .env; nothing changes on your laptop) -----
+# DJANGO_HTTPS=true      only when the site really is served over https:// (turns on secure cookies, redirect, HSTS)
+# DJANGO_BEHIND_PROXY    true when a hosting proxy sits in front (it tells us the real address and http/https)
+# DJANGO_ADMIN_PATH      move the staff back office off the well-known /admin/ address
+# DJANGO_CSRF_TRUSTED_ORIGINS   e.g. https://market.example.com (needed on a real domain)
+HTTPS = env_bool("DJANGO_HTTPS", False)
+BEHIND_PROXY = env_bool("DJANGO_BEHIND_PROXY", False)
+ADMIN_PATH = os.environ.get("DJANGO_ADMIN_PATH", "admin").strip("/ ") + "/"
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+if BEHIND_PROXY:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if HTTPS:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS tells browsers "only ever use https here". Start small (1 hour) so a mistake can be undone,
+    # then raise to 31536000 (a year) once everything works.
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "3600"))
+# Always on: never guess file types, never leak the page address to other sites, never allow framing.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+
+
 # --- Apps: the tools on the table -------------------------------------------
 INSTALLED_APPS = [
     "django.contrib.admin",         # the staff back office at /admin/
@@ -80,6 +104,7 @@ INSTALLED_APPS = [
 # --- Middleware: checks every request walks through, in order -----------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.security.ContentSecurityPolicyMiddleware",   # tells browsers which scripts may run
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

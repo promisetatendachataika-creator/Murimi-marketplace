@@ -117,3 +117,11 @@ class SecondPassTests(TestCase):
     def test_filters_in_address_still_serve_the_page(self):
         """/?crop=Tomatoes&province=Harare is the same page; JavaScript reads the filters."""
         self.assertEqual(self.client.get("/", {"crop": "Tomatoes", "province": "Harare"}).status_code, 200)
+
+
+class RedirectTests(TestCase):
+    def test_next_only_accepts_paths_on_this_site(self):
+        for bad in ["//evil.com", "/\\evil.com", "/\t/evil.com", "https://evil.com", "javascript:alert(1)", "evil.com", "/\n/evil.com"]:
+            html = self.client.get("/login/", {"next": bad}).content.decode()
+            self.assertIn('data-next="/"', html, bad)
+        self.assertIn('data-next="/account/"', self.client.get("/login/", {"next": "/account/"}).content.decode())

@@ -78,7 +78,25 @@ def rate_limited(key, limit, seconds):
 
 
 def client_ip(request):
+    """Who is asking. Behind a hosting proxy every request seems to come from the proxy itself, so when
+    DJANGO_BEHIND_PROXY is on we use the address the proxy appended LAST to X-Forwarded-For
+    (earlier entries can be faked by the visitor). Off by default: never trust that header unless a proxy sets it."""
+    from django.conf import settings
+    if getattr(settings, "BEHIND_PROXY", False):
+        parts = [p.strip() for p in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if p.strip()]
+        if parts:
+            return parts[-1]
     return request.META.get("REMOTE_ADDR", "")
+
+
+def throttle(request, name, limit, seconds, message="You're doing that a lot. Please wait a little and try again."):
+    """Count one use of `name` for this person (or network address, if logged out).
+    Returns a 429 answer when over `limit` uses in `seconds`, otherwise None. A cap like this stops one
+    account from flooding farmers with offers or staff with reports."""
+    who = request.user.id if request.user.is_authenticated else f"ip-{client_ip(request)}"
+    if rate_limited(f"throttle:{name}:{who}", limit, seconds):
+        return json_error(message, status=429)
+    return None
 
 
 def too_many_failures(key, limit):

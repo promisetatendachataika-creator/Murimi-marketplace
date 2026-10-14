@@ -1,0 +1,15 @@
+{% extends "admin/index.html" %}
+{% block content %}
+{% if murimi_items %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:0 0 24px">
+  {% for item in murimi_items %}
+  <a href="{{ item.url }}" style="display:block;padding:14px 16px;border:1px solid var(--hairline-color,#ddd);border-radius:10px;text-decoration:none;{% if item.urgent and item.n %}border-color:#b4561f;{% endif %}">
+    <span style="display:block;font-size:2rem;font-weight:700;line-height:1.1;{% if item.urgent and item.n %}color:#b4561f;{% endif %}">{{ item.n }}</span>
+    <span style="display:block;margin-top:4px;color:var(--body-fg,#333)">{{ item.label }}</span>
+    {% if item.note and item.n %}<span style="display:block;margin-top:4px;font-size:.8rem;color:var(--body-quiet-color,#666)">{{ item.note }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

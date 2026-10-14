@@ -205,6 +205,9 @@ window.MarketAPI = (function () {
     /* GET /api/me/requests/  (with offers_waiting on each) */
     myRequests() { return call("GET", "/api/me/requests/"); },
 
+    /* POST /api/listings/<id>/report/  { reason, details }  (needs log-in; staff see it in the back office) */
+    reportListing(listingId, data) { return call("POST", `/api/listings/${listingId}/report/`, data); },
+
     /* POST /api/requests/<id>/close/  (only the buyer who posted it) */
     closeRequest(id) { return call("POST", `/api/requests/${id}/close/`); },
 

@@ -12,7 +12,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path("admin/", admin.site.urls),   # staff back office
+    path(settings.ADMIN_PATH, admin.site.urls),   # staff back office (/admin/ unless DJANGO_ADMIN_PATH says otherwise)
     path("api/", include("core.urls")),  # JSON for the pages' JavaScript (api.js)
     path("", include("web.urls")),     # the marketplace pages: /, /login/, /listing/101/ ...
 ]

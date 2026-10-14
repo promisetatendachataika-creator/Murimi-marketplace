@@ -247,3 +247,77 @@ class SeedMarketTests(TestCase):
         self.assertEqual(Listing.objects.get(pk=101).photos.count(), 3)
         self.assertGreater(Listing.objects.create(farmer=User.objects.get(username="tendai"), crop="Eggs", unit="tray_30",
                                                   quantity=1, quantity_left=1, price_usd=1).pk, 121)   # ids continue after the samples
+
+
+class ReportAndStaffTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()                    # rate-limit counts live in the cache
+        self.farmer = User.objects.create_user("+263771111111", "pw-123456", name="Tendai Moyo", role="farmer")
+        self.buyer = User.objects.create_user("+263712222222", "pw-123456", name="Rudo Chari", role="buyer")
+        self.staff = User.objects.create_user("+263780000009", "pw-123456", name="Staff Person", role="", is_staff=True, is_superuser=True)
+        self.listing = make_listing(self.farmer)
+
+    def post(self, user, data, listing=None):
+        b = Browser(user)
+        c = b.c
+        return c.post(f"/api/listings/{(listing or self.listing).id}/report/", json.dumps(data), content_type="application/json",
+                      HTTP_X_CSRFTOKEN=c.cookies["csrftoken"].value)
+
+    def test_report_needs_login_and_valid_reason(self):
+        self.assertEqual(self.post(None, {"reason": "scam"}).status_code, 401)
+        r = self.post(self.buyer, {"reason": "nonsense"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("reason", r.json()["errors"])
+        self.assertEqual(self.post(self.buyer, {"reason": "scam", "details": "x" * 301}).status_code, 400)
+
+    def test_report_saved_once_and_not_on_own_or_draft_listing(self):
+        self.assertEqual(self.post(self.buyer, {"reason": "price", "details": "Too cheap"}).status_code, 201)
+        self.assertEqual(self.post(self.buyer, {"reason": "price"}).status_code, 409)       # already reported
+        self.assertEqual(self.post(self.farmer, {"reason": "scam"}).status_code, 404)      # not your own
+        draft = make_listing(self.farmer, status="draft")
+        self.assertEqual(self.post(self.buyer, {"reason": "scam"}, draft).status_code, 404)
+
+    def test_report_limit_per_day(self):
+        for i in range(10):
+            l = make_listing(self.farmer)
+            self.assertEqual(self.post(self.buyer, {"reason": "other"}, l).status_code, 201)
+        self.assertEqual(self.post(self.buyer, {"reason": "other"}, make_listing(self.farmer)).status_code, 429)
+
+    def test_staff_hide_and_close_action_and_dashboard(self):
+        from .models import ListingReport
+        self.post(self.buyer, {"reason": "scam"})
+        c = Client()
+        c.force_login(self.staff)
+        home = c.get("/admin/")
+        self.assertContains(home, "Reports waiting for a look")
+        self.assertContains(home, "Prices out of date")
+        r = c.post("/admin/listings/listingreport/", {"action": "hide_and_close", "_selected_action": [ListingReport.objects.get().pk]}, follow=True)
+        self.assertEqual(r.status_code, 200)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, "hidden")
+        rep = ListingReport.objects.get()
+        self.assertEqual((rep.status, rep.handled_by_id), ("done", self.staff.pk))
+        self.assertEqual(Browser().get("/api/listings/").json()["count"], 0)
+
+    def test_blocking_a_farmer_hides_listings_and_ends_session(self):
+        farmer_browser = Browser(self.farmer)
+        self.assertEqual(farmer_browser.get("/api/auth/me/").json()["user"]["id"], self.farmer.id)
+        c = Client()
+        c.force_login(self.staff)
+        c.post("/admin/accounts/user/", {"action": "block_accounts", "_selected_action": [self.farmer.pk]}, follow=True)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, "hidden")
+        self.assertIsNone(farmer_browser.get("/api/auth/me/").json()["user"])         # logged out everywhere
+
+    def test_staff_cannot_edit_agreed_orders(self):
+        from orders.admin import OrderAdmin
+        from orders.models import Order
+        from django.contrib import admin as dj_admin
+        ma = OrderAdmin(Order, dj_admin.site)
+
+        class Req:
+            user = self.staff
+        self.assertFalse(ma.has_add_permission(Req))
+        self.assertFalse(ma.has_delete_permission(Req))
+        self.assertIn("price_usd", ma.get_readonly_fields(Req))

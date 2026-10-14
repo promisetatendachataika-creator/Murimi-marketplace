@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from accounts.choices import PRODUCTS, PROVINCES, READY_WINDOW_DAYS, units_for
-from core.http import allow, json_error, read_json
+from core.http import allow, json_error, read_json, throttle
 from orders.api import MAX_MESSAGE, order_json
 from orders.models import Order
 
@@ -112,6 +112,9 @@ def requests_view(request):
     if not request.user.can_buy:
         return json_error("Your account is for selling. Posting requests needs a buyer account; WhatsApp us to change it.",
                           status=403)
+    over = throttle(request, "request", 10, 86400, "You've posted a lot of requests today. Please try again tomorrow.")
+    if over:
+        return over
     data, err = read_json(request)
     if err:
         return err
@@ -129,6 +132,9 @@ def supply(request, request_id):
     me = request.user
     if not me.can_sell:
         return json_error("Supplying needs a farmer account; WhatsApp us to change it.", status=403)
+    over = throttle(request, "supply", 30, 3600, "That's a lot of offers in an hour. Please wait a little before sending more.")
+    if over:
+        return over
     r = BuyerRequest.objects.select_related("buyer").filter(pk=request_id).first()
     if not r or r.status != BuyerRequest.OPEN or r.needed_by < timezone.localdate():
         return json_error("This request is closed.", status=404)

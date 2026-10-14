@@ -98,3 +98,30 @@ class ListingPhoto(models.Model):
 
     def __str__(self):
         return f"Photo {self.position + 1} of listing #{self.listing_id}"
+
+
+class ListingReport(models.Model):
+    """A person flagging a listing for staff to look at (scam, wrong price, not real, already sold...)."""
+    REASONS = [("scam", "Looks like a scam"), ("price", "The price looks wrong"), ("fake", "Not real produce or wrong photos"),
+               ("sold", "Already sold or not available"), ("other", "Something else")]
+    OPEN, DONE = "open", "done"
+
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="reports")
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reports_made")
+    reason = models.CharField(max_length=10, choices=REASONS)
+    details = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=5, choices=[(OPEN, "Needs a look"), (DONE, "Handled")], default=OPEN, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    handled_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="reports_handled")
+    handled_at = models.DateTimeField(null=True, blank=True)
+    outcome = models.CharField(max_length=300, blank=True, help_text="What staff did (only staff see this).")
+
+    class Meta:
+        ordering = ["status", "-created_at"]
+        constraints = [
+            # One open report per person per listing: no piling on.
+            models.UniqueConstraint(fields=["listing", "reporter"], condition=Q(status="open"), name="one_open_report_each"),
+        ]
+
+    def __str__(self):
+        return f"Report #{self.pk}: {self.get_reason_display()} on listing {self.listing_id}"

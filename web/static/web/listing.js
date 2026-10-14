@@ -161,7 +161,31 @@
       try { await navigator.clipboard.writeText(location.href); toast("Link copied. Paste it into WhatsApp or SMS."); }
       catch (e) { toast("Copy this address from the top of your browser: " + location.href); }
     });
-    $("#reportBtn").addEventListener("click", () => toast("Thank you. Reporting comes with the staff tools; for now, WhatsApp us on +263 78 257 3320."));
+    // Report this listing: a short form that goes to staff (POST /api/listings/<id>/report/).
+    $("#reportBtn").addEventListener("click", () => {
+      if (l.is_mine) { toast("This is your own listing."); return; }
+      if (!ME) { location.href = `/login/?next=/listing/${l.id}/`; return; }
+      let box = $("#reportBox");
+      if (box) { box.hidden = !box.hidden; return; }
+      box = document.createElement("form");
+      box.id = "reportBox"; box.className = "report-box";
+      box.innerHTML = `<h3>Report this listing</h3>
+        <label class="field"><span>What is wrong?</span><select name="reason" required>
+          <option value="">Choose one</option><option value="scam">Looks like a scam</option><option value="price">The price looks wrong</option>
+          <option value="fake">Not real produce or wrong photos</option><option value="sold">Already sold or not available</option><option value="other">Something else</option></select></label>
+        <label class="field"><span>Details (optional)</span><input name="details" maxlength="300" autocomplete="off"></label>
+        <p class="form-error" role="alert"></p>
+        <button class="btn btn-green" type="submit">Send to staff</button>`;
+      $(".lp-share").insertAdjacentElement("afterend", box);
+      box.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const res = await MarketAPI.reportListing(l.id, { reason: box.reason.value, details: box.details.value.trim() });
+        if (!res.ok) { $(".form-error", box).textContent = Object.values(res.body.errors || {})[0] || res.body.error; return; }
+        box.innerHTML = "<p><strong>Thank you.</strong> Staff will look at this listing.</p>";
+        toast("Report sent. Thank you for keeping the market honest.");
+      });
+      box.reason.focus();
+    });
 
     const form = $("form#offer");
     if (!form) return;

@@ -71,3 +71,25 @@ class ApiNotFoundTests(TestCase):
     def test_pages_outside_api_are_not_affected(self):
         """The catch-all only covers /api/: the market page still loads."""
         self.assertEqual(self.client.get("/").status_code, 200)
+
+
+class SecurityHeaderTests(TestCase):
+    def test_pages_and_api_carry_a_content_security_policy(self):
+        for url in ("/", "/login/", "/account/", "/listing/1/", "/api/health/"):
+            r = self.client.get(url)
+            policy = r["Content-Security-Policy"]
+            self.assertIn("script-src 'self'", policy, url)
+            self.assertNotIn("unsafe-inline'", policy.split("style-src")[0], url)       # scripts: never inline
+            self.assertEqual(r["X-Frame-Options"], "DENY", url)
+            self.assertEqual(r["X-Content-Type-Options"], "nosniff", url)
+
+    def test_no_inline_scripts_in_pages(self):
+        import re
+        for url in ("/", "/login/", "/account/", "/listing/1/"):
+            html = self.client.get(url).content.decode()
+            for tag in re.findall(r"<script\b[^>]*>", html):
+                self.assertIn("src=", tag, f"inline script on {url}: {tag}")
+            self.assertNotRegex(html, r"\son(click|load|error)=", url)
+
+    def test_admin_is_not_given_the_page_policy(self):
+        self.assertNotIn("Content-Security-Policy", self.client.get("/admin/login/"))

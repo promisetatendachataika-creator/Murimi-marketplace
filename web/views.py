@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 
@@ -28,8 +29,11 @@ def account_page(request, mode="login"):
     if mode not in AUTH_MODES:
         mode = "login"
     next_url = request.GET.get("next", "/")
-    if not next_url.startswith("/") or next_url.startswith("//"):
-        next_url = "/"   # never send people to another website after log-in
+    # Never send people to another website after log-in. Django's checker also catches the tricks a
+    # plain startswith("/") misses: "/\\evil.com" and "/<tab>/evil.com", which browsers read as "//evil.com".
+    if not next_url.startswith("/") or not url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = "/"
     return render(request, "web/login.html", {"mode": mode, "next": next_url})
 
 

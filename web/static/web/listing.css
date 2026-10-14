@@ -104,3 +104,8 @@
   .lp { padding-bottom: 100px; }
   .toast { bottom: 84px; }
 }
+
+/* Report this listing */
+.report-box { margin-top: 14px; padding: 16px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface-2); display: grid; gap: 12px; max-width: 460px; }
+.report-box[hidden] { display: none; }
+.report-box h3 { margin: 0; font-size: 1.05rem; }

@@ -8,12 +8,13 @@ POST /api/listings/                create (form fields + up to 3 photo files)
 GET  /api/listings/<id>/           one listing in full
 POST /api/listings/<id>/sold-out/  owner only
 POST /api/listings/<id>/publish/   owner only: draft -> on the market
+POST /api/listings/<id>/report/    anyone logged in: flag a listing for staff
 GET  /api/me/listings/             my listings (drafts and sold out too)
 """
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, DecimalField, ExpressionWrapper, F, OuterRef, Q, Subquery, Value, When
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -22,14 +23,15 @@ from django.utils.dateparse import parse_date
 
 from accounts.choices import (CROPS, DELIVERY_CHOICES, POULTRY, PRICE_FRESH_DAYS, PRODUCT_UNITS, PRODUCTS,
                               PROVINCES, READY_WINDOW_DAYS, UNIT_CHOICES, CROP_UNITS, units_for)
-from core.http import allow, json_error
+from core.http import allow, json_error, rate_limited, read_json, throttle
 from orders.records import seller_records, seller_reviews
 from prices.models import PriceReport, compare, latest_price, latest_prices
 
-from .models import Listing, ListingPhoto
+from .models import Listing, ListingPhoto, ListingReport
 from .photos import PhotoError, clean_photo
 
 PAGE_SIZE = 12
+REPORTS_PER_DAY = 10
 MAX_PHOTOS = 3
 REPEATS = [{"value": "once", "label": "Once"}, {"value": "weekly", "label": "Every week"},
            {"value": "fortnightly", "label": "Every 2 weeks"}, {"value": "monthly", "label": "Every month"}]
@@ -246,6 +248,9 @@ def listings(request):
         return json_error("Please log in to list produce.", status=401)
     if not request.user.can_sell:
         return json_error("Only farmer accounts can list produce.", status=403)
+    over = throttle(request, "listing", 20, 86400, "You've added a lot of listings today. Please try again tomorrow.")
+    if over:
+        return over
     draft = request.POST.get("status") == "draft"
     cleaned, errors, uploads = _read_listing_form(request.POST, request.FILES, draft)
     cleaned_photos = []
@@ -334,6 +339,37 @@ def publish(request, listing_id):
     l.quantity_left = l.quantity
     l.save()
     return JsonResponse({"id": l.id, "status": l.status})
+
+
+@allow("POST")
+def report_listing(request, listing_id):
+    """Anyone logged in can flag a listing for staff. Limits stop one person flooding staff."""
+    if not request.user.is_authenticated:
+        return json_error("Please log in to report a listing. It helps us keep the market honest.", status=401)
+    me = request.user
+    if rate_limited(f"report:{me.id}", REPORTS_PER_DAY, 86400):
+        return json_error("You've sent a lot of reports today. Staff will look at them; please try again tomorrow.", status=429)
+    l = Listing.objects.filter(pk=listing_id).exclude(status=Listing.DRAFT).first()
+    if not l or l.farmer_id == me.id:
+        return json_error("This listing doesn't exist, or it's yours.", status=404)
+    data, err = read_json(request)
+    if err:
+        return err
+    reason = data.get("reason")
+    details = str(data.get("details") or "").strip()
+    errors = {}
+    if reason not in dict(ListingReport.REASONS):
+        errors["reason"] = "Choose what is wrong."
+    if len(details) > 300:
+        errors["details"] = "Keep it under 300 characters."
+    if errors:
+        return json_error("Please check the form.", errors=errors)
+    try:
+        with transaction.atomic():
+            ListingReport.objects.create(listing=l, reporter=me, reason=reason, details=details)
+    except IntegrityError:
+        return json_error("You've already reported this listing. Staff will look at it.", status=409)
+    return JsonResponse({"ok": True}, status=201)
 
 
 @allow("GET")

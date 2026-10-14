@@ -14,7 +14,7 @@ from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 
-from core.http import allow, json_error, read_json
+from core.http import allow, json_error, read_json, throttle
 from listings.models import Listing
 
 from .models import TRANSITIONS, Order, Rating
@@ -68,6 +68,9 @@ def send_offer(request, listing_id):
     if not request.user.is_authenticated:
         return json_error("Please log in to send an offer.", status=401)
     me = request.user
+    over = throttle(request, "offer", 30, 3600, "That's a lot of offers in an hour. Please wait a little before sending more.")
+    if over:
+        return over
     if not me.can_buy:
         return json_error("Your account is for selling. Buying needs a buyer account; WhatsApp us to change it.", status=403)
     data, err = read_json(request)
@@ -132,6 +135,9 @@ def order_action(request, order_id, action):
     if (err := _need_login(request)):
         return err
     me = request.user
+    over = throttle(request, "order-action", 200, 3600)
+    if over:
+        return over
     t = TRANSITIONS.get(action)
     if not t:
         return json_error("Unknown action.", status=404)
@@ -183,6 +189,9 @@ def rate_order(request, order_id):
     if (err := _need_login(request)):
         return err
     me = request.user
+    over = throttle(request, "rating", 60, 3600)
+    if over:
+        return over
     o = Order.objects.select_related("farmer", "buyer").filter(pk=order_id).first()
     if not o or me.id not in (o.farmer_id, o.buyer_id):
         return json_error("Order not found.", status=404)

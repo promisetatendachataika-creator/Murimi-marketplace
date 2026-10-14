@@ -11,7 +11,8 @@
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const body = document.body;
-  const NEXT = body.dataset.next || "/";
+  // Where to go after log-in: only a path on THIS site (the server already checked; this is the second lock).
+  const NEXT = /^\/(?![\/\\])[^\x00-\x1f]*$/.test(body.dataset.next || "") ? body.dataset.next : "/";
 
   // ---------- Which form is showing ----------
   const URLS = { login: "/login/", register: "/register/", forgot: "/forgot/" };

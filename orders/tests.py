@@ -188,3 +188,25 @@ class ActionTests(TestCase):
         with self.assertRaises(IntegrityError):
             Order.objects.create(listing=self.listing, farmer=self.farmer, buyer=self.farmer, crop="Tomatoes",
                                  unit="crate", price_usd=1, quantity=1, delivery="pickup")
+
+
+class LimitTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.farmer, self.buyer, self.buyer2 = people()
+        self.listing = make_listing(self.farmer, quantity=500, quantity_left=500)
+
+    def test_offer_flood_is_stopped(self):
+        b = JsonBrowser(self.buyer)
+        codes = [b.post(f"/api/listings/{make_listing(self.farmer).id}/offers/", {"quantity": 1, "delivery": "pickup"}).status_code
+                 for _ in range(32)]
+        self.assertEqual(codes[:30], [201] * 30)
+        self.assertEqual(codes[30:], [429, 429])
+
+    def test_request_flood_is_stopped(self):
+        from buyer_requests.tests import form
+        b = JsonBrowser(self.buyer2)
+        codes = [b.post("/api/requests/", form()).status_code for _ in range(12)]
+        self.assertEqual(codes[:10], [201] * 10)
+        self.assertEqual(codes[10:], [429, 429])

@@ -10,9 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800;900&display=swap">
   <link rel="stylesheet" href="{% asset 'web/app.css' %}">
   <link rel="stylesheet" href="{% asset 'web/account.css' %}">
-  <script>
-    try { var t = localStorage.getItem("murimi-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-  </script>
+  <script src="{% asset 'web/theme-init.js' %}"></script>
 </head>
 <body data-static="{% static 'web/' %}">
   <a class="skip" href="#main">Skip to your account</a>

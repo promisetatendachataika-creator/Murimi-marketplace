@@ -199,4 +199,23 @@ Full notes: `docs/lessons/03-first-endpoint.md`.
 - Admin: orders (with their ratings), ratings, buyer requests (with "Close the selected requests").
 - Tests: 91.
 
-**Next:** staff tools polish and a security review, then going-live planning (hosting, PostgreSQL, HTTPS, real WhatsApp; costs checked first).
+## Job 7: Staff tools (14 Oct 2026)
+- **Report this listing** now works: logged-in people choose a reason (scam, wrong price, not real produce, already sold, other) and add a short note. One open report per person per listing, 10 a day each. Table `ListingReport`; `POST /api/listings/<id>/report/`.
+- **Staff home page** (/admin/) shows what needs a person today: reports waiting, prices out of date (which products), listings on the market, offers waiting, open requests, new accounts, blocked accounts. Each tile opens the right list.
+- **Reports queue** in the back office: actions "Hide the listing from the market and mark handled" and "Mark handled (no action)"; who handled it and when is recorded.
+- **Block** now also hides the person's listings and logs them out everywhere; new actions **Unblock** and **Take away Murimi Verified**. Staff and your own account can't be blocked from there.
+- **Orders and ratings are read-only for staff** (to settle disputes): nobody can change an agreed price or quantity from the back office.
+
+## Job 8: Security review (14 Oct 2026)
+Checked every endpoint for log-in, ownership, CSRF and limits; fixed what the review found:
+- **Hole fixed: a blocked person could register again with their own number, confirm the WhatsApp code and switch themselves back on.** Only never-confirmed sign-ups can be replaced now; blocked numbers get "WhatsApp us".
+- **/admin/ log-in had no limit** (only the website's did). The 5-wrong-tries-per-15-minutes lock now lives in the log-in backend, so both are protected, and counts per ACCOUNT (0771234567, +263 77 123 4567 and the username share one count).
+- **Spam limits:** offers 30/hour, supply offers 30/hour, requests 10/day, new listings 20/day, ratings 60/hour, reports 10/day, WhatsApp codes 20/hour and sign-ups 20/hour per network address (codes cost money once WhatsApp goes live).
+- **Open redirect fixed:** `/login/?next=/\evil.com` (and a tab or newline version) could have sent people to another website after log-in. Server uses Django's checker; the page checks again.
+- **Content-Security-Policy:** browsers now refuse any script that isn't one of our own files (no inline scripts; the theme snippet moved to `theme-init.js`). Also Permissions-Policy, X-Frame-Options DENY, no-sniff, same-origin referrer. A second lock behind escaping all user text, which the pages already do (reviewed: every place that draws user text is escaped).
+- **Going-live switches in .env** (nothing changes on the laptop): `DJANGO_HTTPS`, `DJANGO_BEHIND_PROXY`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_HSTS_SECONDS`, `DJANGO_ADMIN_PATH`. With them set, Django's `check --deploy` only has the two optional HSTS-subdomain/preload notes left.
+- Checked and fine: owners-only on listings and orders (404 for strangers), phone numbers only after accept, photos re-encoded, passwords hashed with validators, CSRF on every POST, JSON errors never show internals.
+- **For going live (not done, needs hosting):** the rate-limit counts live in the app's memory (fine for one process; use a shared cache such as the database cache or Redis once there are several), staff accounts have no 2-step log-in yet, and `DJANGO_BEHIND_PROXY` must only be on when a real proxy sets the headers.
+- Tests: 109.
+
+**Next:** going-live planning (hosting, PostgreSQL, HTTPS, real WhatsApp, payments partner; costs checked first).
