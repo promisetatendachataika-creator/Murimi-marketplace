@@ -321,3 +321,18 @@ class ReportAndStaffTests(TestCase):
         self.assertFalse(ma.has_add_permission(Req))
         self.assertFalse(ma.has_delete_permission(Req))
         self.assertIn("price_usd", ma.get_readonly_fields(Req))
+
+
+class StaffPageSurvivesMissingTableTests(TestCase):
+    """If the code is updated but `migrate` hasn't been run, the staff page must explain, not crash."""
+
+    def test_missing_table_shows_a_message(self):
+        from django.db import DatabaseError
+        from unittest import mock
+        staff = User.objects.create_user("+263780000008", "pw-123456", name="Staff Person", role="", is_staff=True, is_superuser=True)
+        c = Client()
+        c.force_login(staff)
+        with mock.patch("core.admin_dashboard.dashboard_items", side_effect=DatabaseError("no such table: listings_listingreport")):
+            r = c.get("/admin/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "the database is behind the code")

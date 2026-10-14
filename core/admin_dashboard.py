@@ -5,6 +5,7 @@ Counts only (one query each); the lists are one click away.
 from datetime import timedelta
 
 from django.contrib import admin
+from django.db import DatabaseError
 from django.urls import reverse
 from django.utils import timezone
 
@@ -55,7 +56,13 @@ def install():
     def index(request, extra_context=None):
         ctx = dict(extra_context or {})
         if request.user.is_active and request.user.is_staff:
-            ctx["murimi_items"] = dashboard_items()
+            try:
+                ctx["murimi_items"] = dashboard_items()
+            except DatabaseError:
+                # A table is missing (usually: `manage.py migrate` hasn't been run after an update).
+                # Say so plainly instead of breaking the whole staff page.
+                ctx["murimi_problem"] = ("The counts can't be shown: the database is behind the code. "
+                                         "Run start-windows.bat (or python manage.py migrate) and reload this page.")
         return original_index(request, ctx)
 
     admin.site.index = index

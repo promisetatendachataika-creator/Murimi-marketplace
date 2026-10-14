@@ -1,5 +1,8 @@
 {% extends "admin/index.html" %}
 {% block content %}
+{% if murimi_problem %}
+<p style="padding:14px 16px;margin:0 0 20px;border:1px solid #b4561f;border-radius:10px;color:#b4561f">{{ murimi_problem }}</p>
+{% endif %}
 {% if murimi_items %}
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:0 0 24px">
   {% for item in murimi_items %}
