@@ -273,7 +273,7 @@
         <div class="farmer">
           <span class="avatar" aria-hidden="true">${esc(f.name.charAt(0))}</span>
           <span class="farmer-name">${esc(f.name)}${f.verified ? ` <span class="verified" title="Checked by a Murimi field officer">${ICON.check} Murimi Verified</span>` : ""}</span>
-          <span class="farmer-record">${f.completed_orders ? `<span class="stars">${ICON.star} ${f.rating.toFixed(1)}</span> from ${f.completed_orders} orders` : "New seller"}</span>
+          <span class="farmer-record">${f.completed_orders ? `<span class="stars">${ICON.star} ${f.rating.toFixed(1)}</span> from ${f.completed_orders} order${f.completed_orders === 1 ? "" : "s"}` : "New seller"}</span>
         </div>
         <button class="btn btn-green btn-block" type="button" data-offer="${l.id}">${l.ready_in_days > 0 ? `Reserve for ${shortDate(l.available_from)}` : "Make an offer"}</button>
       </div>
@@ -830,16 +830,6 @@
     if (flash) { sessionStorage.removeItem("murimi-flash"); setTimeout(() => toast(flash), 300); }
   } catch (e) { /* fine */ }
 
-  // ---------- Server check (the first REAL request to Django) ----------
-  async function showServerCheck() {
-    const res = await MarketAPI.health();
-    const box = $("#serverCheck");
-    box.classList.toggle("is-bad", !res.ok);
-    box.textContent = res.ok
-      ? `Server: connected. Database: ${res.body.database_engine}, answered at ${res.body.server_time.slice(11, 16)}.`
-      : res.status === 503 ? "Server: running, but the database isn't answering." : "Server: can't be reached right now.";
-  }
-
   // ---------- Start ----------
   // Each step is guarded: if one part fails, the rest of the page still works,
   // and the error is written in the browser console (F12) so we can find it.
@@ -884,7 +874,6 @@
     });
 
     await step("price check", updateSellCheck);
-    step("server check", showServerCheck);
     const wantsEdit = new URLSearchParams(location.search).get("edit");
     if (wantsEdit) step("edit form", () => openEdit(Number(wantsEdit)));
     if (location.hash === "#sell") { history.replaceState(null, "", "/"); step("sell form", openSell); }

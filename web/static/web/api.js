@@ -164,19 +164,6 @@ window.MarketAPI = (function () {
     normalizePhone,
     prettyPhone,
 
-    /* REAL: GET /api/health/
-       fetch() sends the request; the server answers with JSON; .json() reads it.
-       Returns { ok, status, body } like every other function here. */
-    async health() {
-      try {
-        const res = await fetch("/api/health/", { headers: { Accept: "application/json" } });
-        return { ok: res.ok, status: res.status, body: await res.json() };
-      } catch (err) {
-        // No answer at all: the phone is offline, or the server isn't running.
-        return { ok: false, status: 0, body: { error: "Can't reach the server.", errors: {} } };
-      }
-    },
-
     /* REAL: GET /api/meta/  (menus + latest market prices) */
     async meta() {
       const res = await call("GET", "/api/meta/");

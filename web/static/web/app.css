@@ -225,10 +225,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .section-tint { background: var(--surface-2); }
 .section-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 32px; margin-bottom: 26px; }
 .section-head > p { max-width: 36em; color: var(--ink-2); }
-.demo-note {
-  font-size: 0.9rem; color: var(--ink-2); padding: 6px 12px; border-radius: 999px;
-  background: var(--surface-2); border: 1px dashed var(--line);
-}
 
 /* ---------- Filters ---------- */
 .filters {
@@ -506,13 +502,7 @@ a.card-top { display: block; color: inherit; }
 .more-row { display: flex; justify-content: center; margin-top: 22px; }
 .more-row .btn { min-width: 240px; }
 .share-link { margin-left: 8px; font-size: 0.82rem; font-weight: 700; color: #1a8f4c; text-decoration: none; white-space: nowrap; }
-.share-link::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: #25d366; }
 .share-link:hover { text-decoration: underline; }
-
-/* Footer: result of the real /api/health/ request */
-.server-check { margin-top: 10px; font-family: var(--mono); font-size: 0.78rem; color: rgba(241, 245, 236, 0.6); }
-.server-check::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #6fbf4a; }
-.server-check.is-bad::before { background: #f09a5e; }
 
 /* Notes on the Sell form when editing a listing that already has sales or offers */
 .sell-note { margin: 0 0 10px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--ink-2); font-size: 0.92rem; }
