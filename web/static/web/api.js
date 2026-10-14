@@ -81,11 +81,28 @@ window.MarketAPI = (function () {
       if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value));
     } catch (e) { return null; }
   }
-  const allUsers = () => M.USERS.concat(store("murimi-demo-users") || []);
-  const publicUser = (u) => ({ id: u.id, name: u.name, phone: u.phone, username: u.username || "", role: u.role });
 
-  let failedLogins = 0;           // the server keeps this in its cache: 5 tries per 15 minutes
-  let pending = null;             // who is waiting for a WhatsApp code, and why
+  /* REAL server calls. Every POST carries the CSRF token in the X-CSRFToken header
+     (Django's middleware refuses POSTs without it). Answers always come back as
+     { ok, status, body } with body = the JSON, or our friendly error on no connection. */
+  async function call(method, url, data) {
+    const opts = { method, credentials: "same-origin", headers: { Accept: "application/json" } };
+    if (method !== "GET") {
+      opts.headers["Content-Type"] = "application/json";
+      opts.headers["X-CSRFToken"] = csrfToken();
+      opts.body = JSON.stringify(data || {});
+    }
+    try {
+      const res = await fetch(url, opts);
+      let body = {};
+      try { body = await res.json(); } catch (e) { body = { error: "The server sent an unexpected answer.", errors: {} }; }
+      return { ok: res.ok, status: res.status, body };
+    } catch (err) {
+      return { ok: false, status: 0, body: { error: "Can't reach the server. Check your connection and try again.", errors: {} } };
+    }
+  }
+  // The demo features (offers, listings...) still read "who am I" from here until they move to the server too.
+  const remember = (user) => store("murimi-demo-session", user || null);
 
   // ================= Offers and orders =================
   // Demo "database": orders and listing changes saved in this browser.
@@ -162,106 +179,51 @@ window.MarketAPI = (function () {
     };
   }
 
-  function checkPassword(pw) {
-    if (!pw || pw.length < 8) return "Use at least 8 characters.";
-    if (/^\d+$/.test(pw)) return "Use some letters too, not only numbers.";
-    return null;
-  }
-
   return {
-    /* LATER: POST /api/auth/login/   { identifier, password }  -> 200 { user } or 400 */
+    // ---------- Accounts: REAL (accounts/api.py) ----------
+    /* POST /api/auth/login/  { identifier: number, username or email, password } */
     async login({ identifier, password }) {
-      await wait(450);
-      if (failedLogins >= 5) return fail(429, "Too many tries. Please wait 15 minutes and try again.");
-      const errors = {};
-      if (!String(identifier || "").trim()) errors.identifier = "Enter your WhatsApp number or username.";
-      if (!password) errors.password = "Enter your password.";
-      if (Object.keys(errors).length) return fail(400, "Please check the form.", errors);
-      const phone = normalizePhone(identifier);
-      const name = String(identifier).trim().toLowerCase();
-      const u = allUsers().find((x) => (phone && x.phone === phone) || (x.username && x.username === name));
-      // Same message whether the account or the password is wrong, so nobody can test which numbers have accounts.
-      if (!u || u.password !== password) {
-        failedLogins += 1;
-        return fail(400, "That number, username or password isn't right.");
-      }
-      failedLogins = 0;
-      store("murimi-demo-session", publicUser(u));
-      return okay(200, { user: publicUser(u) });
+      const res = await call("POST", "/api/auth/login/", { identifier, password });
+      if (res.ok) remember(res.body.user);
+      return res;
     },
 
-    /* LATER: POST /api/auth/register/  -> 201, then a WhatsApp code is sent */
-    async register(data) {
-      await wait(500);
-      const errors = {};
-      const phone = normalizePhone(data.phone);
-      const username = String(data.username || "").trim().toLowerCase();
-      if (!String(data.name || "").trim()) errors.name = "Tell us your name.";
-      if (!phone) errors.phone = "Enter a Zimbabwe mobile number, like 077 123 4567.";
-      else if (allUsers().some((u) => u.phone === phone)) errors.phone = "This number already has an account. Try logging in.";
-      if (username && !/^[a-z0-9_]{3,30}$/.test(username)) errors.username = "3 to 30 letters, numbers or _ only.";
-      else if (username && allUsers().some((u) => u.username === username)) errors.username = "That username is taken.";
-      const pwProblem = checkPassword(data.password);
-      if (pwProblem) errors.password = pwProblem;
-      if (!["farmer", "buyer", "both"].includes(data.role)) errors.role = "Choose what you want to do.";
-      if (Object.keys(errors).length) return fail(400, "Please check the form.", errors);
-      pending = { why: "register", user: { id: Date.now(), name: data.name.trim(), phone, username, role: data.role, password: data.password } };
-      return okay(201, { phone, code_sent: true });
-    },
+    /* POST /api/auth/register/  -> 201 { phone, code_sent }  (account waits for the WhatsApp code) */
+    register(data) { return call("POST", "/api/auth/register/", data); },
 
-    /* LATER: POST /api/auth/verify/  { code }  -> 200 { user } */
+    /* POST /api/auth/verify/  { code } -> { user, next: "done" } or { next: "new_password" } */
     async verifyCode(code) {
-      await wait(400);
-      if (!pending) return fail(400, "Your code has expired. Please start again.");
-      if (!/^\d{6}$/.test(String(code || ""))) return fail(400, "Please check the code.", { code: "Enter the 6 digits from WhatsApp." });
-      if (code !== M.DEMO_CODE) return fail(400, "Please check the code.", { code: "That code isn't right. Check the latest WhatsApp message." });
-      if (pending.why === "register") {
-        const u = Object.assign({ phone_verified: true }, pending.user);
-        store("murimi-demo-users", (store("murimi-demo-users") || []).concat([u]));
-        store("murimi-demo-session", publicUser(u));
-        pending = null;
-        return okay(200, { user: publicUser(u), next: "done" });
-      }
-      pending.verified = true;            // password reset: code is right, now choose a new password
-      return okay(200, { next: "new_password" });
+      const res = await call("POST", "/api/auth/verify/", { code });
+      if (res.ok && res.body.user) remember(res.body.user);
+      return res;
     },
 
-    /* LATER: POST /api/auth/resend/ */
-    async resendCode() { await wait(300); return pending ? okay(200, { code_sent: true }) : fail(400, "Please start again."); },
+    /* POST /api/auth/resend/ */
+    resendCode() { return call("POST", "/api/auth/resend/"); },
 
-    /* LATER: POST /api/auth/forgot/  { phone }
-       Always answers the same, whether or not the number has an account. */
-    async forgotPassword(raw) {
-      await wait(450);
-      const phone = normalizePhone(raw);
-      if (!phone) return fail(400, "Please check the form.", { phone: "Enter a Zimbabwe mobile number, like 077 123 4567." });
-      const u = allUsers().find((x) => x.phone === phone);
-      pending = { why: "reset", phone, userId: u ? u.id : null };
-      return okay(200, { phone, code_sent: true });
+    /* POST /api/auth/forgot/  { phone }  (same answer whether or not the number has an account) */
+    forgotPassword(phone) { return call("POST", "/api/auth/forgot/", { phone }); },
+
+    /* POST /api/auth/password/  { password }  (only after a correct reset code) */
+    setNewPassword(password) { return call("POST", "/api/auth/password/", { password }); },
+
+    /* GET /api/auth/me/  -> { user } or { user: null } */
+    async me() {
+      const res = await call("GET", "/api/auth/me/");
+      if (!res.ok) return { user: store("murimi-demo-session") };   // offline: use what we last knew
+      remember(res.body.user);
+      return { user: res.body.user };
     },
 
-    /* LATER: POST /api/auth/password/  { password } (only after a correct reset code) */
-    async setNewPassword(password) {
-      await wait(400);
-      if (!pending || pending.why !== "reset" || !pending.verified) return fail(400, "Please start the reset again.");
-      const pwProblem = checkPassword(password);
-      if (pwProblem) return fail(400, "Please check the form.", { password: pwProblem });
-      const extra = store("murimi-demo-users") || [];
-      const u = extra.find((x) => x.id === pending.userId) || M.USERS.find((x) => x.id === pending.userId);
-      if (u) { u.password = password; store("murimi-demo-users", extra); }
-      pending = null;
-      return okay(200, { done: true });
+    /* POST /api/auth/logout/ */
+    async logout() {
+      const res = await call("POST", "/api/auth/logout/");
+      remember(null);
+      return res;
     },
-
-    /* LATER: GET /api/auth/me/  -> { user } or { user: null } */
-    async me() { return { user: store("murimi-demo-session") }; },
-
-    /* LATER: POST /api/auth/logout/ */
-    async logout() { store("murimi-demo-session", null); return okay(200, {}); },
 
     normalizePhone,
     prettyPhone,
-    demoCode: M.DEMO_CODE,
 
     /* REAL (Lesson 3): GET /api/health/   The waiter's first real trip to the kitchen.
        fetch() sends the request; the server answers with JSON; .json() reads it.
@@ -392,7 +354,7 @@ window.MarketAPI = (function () {
       if (!data.ready_on || isNaN(d) || d < 0) errors.ready_on = "Choose when you can supply it.";
       else if (d > M.READY_WINDOW_DAYS) errors.ready_on = `Offer to supply up to ${M.READY_WINDOW_DAYS} days ahead.`;
       if (Object.keys(errors).length) return fail(400, "Please check the form.", errors);
-      const buyerUser = r.buyer.id === 1 ? M.USERS[0] : null;
+      const buyerUser = r.buyer.id === 1 ? { phone: "+263771234567" } : null;
       const o = {
         id: Date.now(), request_id: r.id, listing_id: null, proposed_by: "farmer", crop: r.crop,
         variety: String(data.variety || "").trim().slice(0, 60) || "As requested", unit: r.unit, price_usd: price,

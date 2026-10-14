@@ -46,3 +46,57 @@ def allow(*methods):
         return wrapper
 
     return decorator
+
+
+def read_json(request):
+    """The request body as a dict. Returns (data, None) or (None, error_response)."""
+    import json
+    if not request.body:
+        return {}, None
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None, json_error("The request wasn't valid JSON.", status=400)
+    if not isinstance(data, dict):
+        return None, json_error("Send a JSON object.", status=400)
+    return data, None
+
+
+def rate_limited(key, limit, seconds):
+    """Count one try for `key`; True if it's over `limit` tries within `seconds`.
+
+    Uses Django's cache (like the Hub: 5 log-in tries per 15 minutes).
+    """
+    from django.core.cache import cache
+    cache.add(key, 0, timeout=seconds)          # start the window if it isn't there yet
+    try:
+        count = cache.incr(key)
+    except ValueError:                           # expired between add and incr
+        cache.set(key, 1, timeout=seconds)
+        count = 1
+    return count > limit
+
+
+def client_ip(request):
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def too_many_failures(key, limit):
+    """True if `key` already has `limit` or more recorded failures (doesn't count anything)."""
+    from django.core.cache import cache
+    return (cache.get(key) or 0) >= limit
+
+
+def record_failure(key, seconds):
+    """Count one failure for `key`; the count disappears `seconds` after the first failure."""
+    from django.core.cache import cache
+    if not cache.add(key, 1, timeout=seconds):
+        try:
+            cache.incr(key)
+        except ValueError:
+            cache.set(key, 1, timeout=seconds)
+
+
+def clear_failures(key):
+    from django.core.cache import cache
+    cache.delete(key)

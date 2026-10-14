@@ -174,13 +174,6 @@ window.MURIMI_MOCK = (function () {
     { value: "fortnightly", label: "Every 2 weeks" }, { value: "monthly", label: "Every month" },
   ];
 
-  // One sample account to try logging in with (demo only).
-  const USERS = [
-    { id: 1, name: "Tendai Moyo", phone: "+263771234567", username: "tendai", role: "both",
-      password: "murimi2026", phone_verified: true },
-  ];
-  // In test mode every WhatsApp code is this (the real server prints its code in the server window).
-  const DEMO_CODE = "123456";
 
   // A listing Tendai saved as a draft: only Tendai sees it, in My account.
   const DRAFTS = [
@@ -254,5 +247,5 @@ window.MURIMI_MOCK = (function () {
       reviews: [{ by: "Pick n Pay Marondera", stars: 5, comment: "No broken eggs in 40 trays.", date: day(-6) }] },
   };
 
-  return { PRICE_FRESH_DAYS, SELL_TODAY_ENDS_HOUR, REPEATS, DESCRIPTIONS, PHOTOS, FARMERS, DRAFTS, ORDERS, USERS, DEMO_CODE, CROPS, POULTRY, PROVINCES, UNITS, PRODUCT_UNITS, READY_WINDOW_DAYS, MARKET_PRICES, LISTINGS, REQUESTS };
+  return { PRICE_FRESH_DAYS, SELL_TODAY_ENDS_HOUR, REPEATS, DESCRIPTIONS, PHOTOS, FARMERS, DRAFTS, ORDERS, CROPS, POULTRY, PROVINCES, UNITS, PRODUCT_UNITS, READY_WINDOW_DAYS, MARKET_PRICES, LISTINGS, REQUESTS };
 })();

@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",   # CSS / JS / images for the admin
     # Our own apps, one per job:
     "core",                         # /api/health/ and the shared JSON helpers
+    "accounts",                     # users, log-in, WhatsApp codes
     "web",                          # serves the marketplace pages
 ]
 
@@ -86,6 +87,26 @@ MIDDLEWARE = [
 # A POST without a valid CSRF token is refused by middleware before any view runs.
 # For /api/ addresses this view answers in our JSON shape (see core/api.py).
 CSRF_FAILURE_VIEW = "core.api.csrf_failure"
+
+# --- Accounts -----------------------------------------------------------------
+# Our own User table (phone + optional username and email), set BEFORE the first migrate.
+AUTH_USER_MODEL = "accounts.User"
+# Log in with WhatsApp number, username or email.
+AUTHENTICATION_BACKENDS = ["accounts.backends.PhoneUsernameEmailBackend"]
+# "test" prints WhatsApp codes in the server window (like the Hub). "live" needs a Meta account.
+WHATSAPP_MODE = os.environ.get("WHATSAPP_MODE", "test")
+# Stay logged in for 30 days on your own phone; the cookie is hidden from JavaScript.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+# Tests only: a fast password hasher (real passwords always use the slow, safe default).
+import sys  # noqa: E402
+if len(sys.argv) > 1 and sys.argv[1] == "test":
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+# Rate limits (log-in tries, codes) are counted in Django's cache.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "murimi"}}
 
 # The "front door map": the first urls.py Django reads for every request.
 ROOT_URLCONF = "config.urls"

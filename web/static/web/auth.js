@@ -111,7 +111,8 @@
   function startCode(why, phone) {
     codeFor = why;
     $("#codePhone").textContent = MarketAPI.prettyPhone(phone);
-    $("#codeHint").textContent = `Demo: no WhatsApp message is sent yet. Use ${MarketAPI.demoCode}. (The real server prints the code in its window, like the Hub.)`;
+    // Test mode (like the Hub): no WhatsApp message is sent; the server prints the code in its window.
+    $("#codeHint").textContent = "Test mode: no WhatsApp message is sent yet. The code is printed in the server window (the PowerShell window running start-windows.bat).";
     $("#codeForm").code.value = "";
     show("code");
     countdown(60);

@@ -148,4 +148,22 @@ Full notes: `docs/lessons/03-first-endpoint.md`.
 - HTTP status codes 200, 400, 401, 403, 404, 405, 409, 503 and what each means.
 - **Middleware runs before views:** a POST with no CSRF token never reaches our code. Found because Django's test client turns CSRF checks off; fixed with `CSRF_FAILURE_VIEW` and tests using `enforce_csrf_checks=True`.
 
-**Next:** move the project out of OneDrive; then Lesson 4: Users (custom User with phone + username, roles; SQL vs model vs migration; register, log in, log out with sessions and CSRF). Remember: delete `db.sqlite3` before the first migration of the custom User.
+## Project moved to C:\murimi-market (14 Oct 2026)
+- Copied out of OneDrive (robocopy, without .venv); all files checked identical; tests pass there. Git now has all work committed. Claude commits after each job.
+
+## Job 2: Accounts, real backend (14 Oct 2026)
+- New app `accounts`: `choices.py` (Hub's PROVINCES and CROPS, plus POULTRY and marketplace roles), `phone.py` (`normalize_phone`: every way of writing a number becomes +2637XXXXXXXX), `models.py`, `backends.py`, `api.py`, `whatsapp.py`, `admin.py`, `seed_demo` command, 19 tests.
+- **User table** (`AUTH_USER_MODEL = "accounts.User"`): phone (unique, the log-in name), username (optional, unique, lower-case), email (optional, unique, lower-case), name, role (farmer / buyer / both), phone_verified_at, is_verified_farmer + date, is_active, is_staff. Passwords are salted hashes.
+- **Log in with WhatsApp number, username OR email** (`PhoneUsernameEmailBackend`).
+- **PhoneCode table**: 6-digit codes stored only as HMAC fingerprints, 10 minutes, 5 wrong tries, older codes stop working when a new one is sent.
+- Endpoints under `/api/auth/`: `me`, `login`, `logout`, `register`, `verify`, `resend`, `forgot`, `password`. All POSTs need the CSRF token. Errors in the `{"error", "errors"}` shape.
+- Rules: only WRONG log-in tries count (5 per account, 20 per network address, 15 minutes; a correct log-in clears the count); one code a minute and 5 an hour per number; same message for wrong number/password; "forgot" gives the same answer for unknown numbers and sends nothing; new accounts stay switched off until the WhatsApp code is confirmed.
+- WhatsApp **test mode** (`WHATSAPP_MODE=test`, like the Hub): codes are printed in the server window.
+- Staff admin: search people, mark **Murimi Verified**, block accounts; codes visible as "sent" but never readable.
+- Front end: the log-in page is now REAL (api.js `call()` sends JSON + CSRF). Register has an optional **Email** field. Other features (offers, listings, requests) still use sample data but now use the real logged-in user.
+- `start-windows.bat` runs `seed_demo`: Tendai (077 123 4567 / tendai / tendai@example.com, `murimi2026`, sells and buys, Murimi Verified), Rudo (071 234 5678 / rudo, `murimi2026`, buyer), staff 078 000 0000 / `murimi-staff-2026` for /admin/ (change before going live).
+- Fresh database: the old db.sqlite3 (no real data) was replaced, because the custom User must exist before the first migration.
+- Bugs found by tests and fixed: a duplicate username/email wasn't flagged when the number also belonged to an active account; the log-in limit counted successful log-ins too.
+- Tests: 45.
+
+**Next:** Job 3: Listings (real table, photo uploads checked on the server, filters, Show more, drafts, sold out, coming soon).

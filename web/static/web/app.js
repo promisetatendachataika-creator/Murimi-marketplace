@@ -747,7 +747,7 @@
   }
 
   async function start() {
-    step("who is logged in", showWho);
+    await step("who is logged in", showWho);
     readAddress();
 
     const meta = await MarketAPI.meta();
