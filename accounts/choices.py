@@ -40,6 +40,20 @@ UNIT_CHOICES = [
     ("bird", "bird"),
     ("tray_30", "tray of 30 eggs"),
 ]
+# How to say a unit in a sentence: one, and more than one. The page's unitLabel() matches this.
+UNIT_WORDS = {
+    "kg": ("kg", "kg"), "tonne": ("tonne", "tonnes"), "crate": ("crate", "crates"),
+    "pocket_15kg": ("pocket of 15 kg", "pockets of 15 kg"), "bag_50kg": ("bag of 50 kg", "bags of 50 kg"),
+    "bird": ("bird", "birds"), "tray_30": ("tray of 30 eggs", "trays of 30 eggs"),
+}
+
+
+def say_units(unit, n):
+    """'36 crates', '1 bag of 50 kg'. Used in messages people read."""
+    one, many = UNIT_WORDS.get(unit, (unit, unit))
+    return f"{n} {one if n == 1 else many}"
+
+
 CROP_UNITS = ["kg", "tonne", "crate", "pocket_15kg", "bag_50kg"]
 PRODUCT_UNITS = {"Broilers": ["bird", "kg"], "Eggs": ["tray_30"]}
 

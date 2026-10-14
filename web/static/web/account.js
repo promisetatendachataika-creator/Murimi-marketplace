@@ -290,7 +290,7 @@
     if (!btn) return;
 
     if (btn.dataset.goto) return selectTab($("#" + btn.dataset.goto), true);
-    if (btn.dataset.edit) return toast("Editing a listing comes with the listings API. (Demo)");
+    if (btn.dataset.edit) { location.href = `/?edit=${btn.dataset.edit}`; return; }
 
     if (btn.dataset.closereq) {
       if (needsConfirm(btn)) return;

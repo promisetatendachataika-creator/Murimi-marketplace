@@ -281,12 +281,14 @@
         </label>
       </fieldset>
 
+      <p class="sell-note" id="sellFrozen" hidden></p>
+      <p class="sell-note sell-note-warn" id="sellOfferWarn" hidden></p>
       <p class="form-error" id="sellError" role="alert"></p>
       <div class="sell-actions">
-        <button class="btn btn-outline" value="draft" type="submit">Save as draft</button>
-        <button class="btn btn-green" value="publish" type="submit">Publish listing</button>
+        <button class="btn btn-outline" id="sellSave" value="draft" type="submit">Save as draft</button>
+        <button class="btn btn-green" id="sellPublish" value="publish" type="submit">Publish listing</button>
       </div>
-      <p class="fine">A draft is only visible to you, in My account. Demo: listings are saved in this browser until the real database is built.</p>
+      <p class="fine">A draft is only visible to you, in My account. You can change a listing later: My account, My listings, Edit.</p>
     </form>
   </dialog>
 

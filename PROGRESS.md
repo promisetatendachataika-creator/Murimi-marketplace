@@ -218,4 +218,22 @@ Checked every endpoint for log-in, ownership, CSRF and limits; fixed what the re
 - **For going live (not done, needs hosting):** the rate-limit counts live in the app's memory (fine for one process; use a shared cache such as the database cache or Redis once there are several), staff accounts have no 2-step log-in yet, and `DJANGO_BEHIND_PROXY` must only be on when a real proxy sets the headers.
 - Tests: 109.
 
-**Next:** going-live planning (hosting, PostgreSQL, HTTPS, real WhatsApp, payments partner; costs checked first).
+## Job 9: Farmers edit their own listings (14 Oct 2026)
+- **My account -> My listings -> Edit** now really works (it was still a leftover demo message). It opens the Sell form filled in, at `/?edit=<id>`.
+- Change price, quantity, variety, description, province, district, delivery, dates, and add or remove photos (still up to 3).
+- Rules the server checks: owner only; quantity can't go below what's already sold; the product and unit **freeze once there are offers**, because offers copied them; a ready date that has already passed is kept as it is; a listing hidden by staff can't be edited by the farmer.
+- **Offers already waiting keep the price they were sent at.** An agreed price never changes under anyone. The form warns the farmer first: "3 buyers have offers waiting at US$6.50...".
+- More stock on a sold-out listing puts it back on the market; dropping to zero marks it sold out.
+- Accepting an offer and editing at the same moment can't lose one of the changes (the row is locked).
+- Drafts can now be **published** from the edit form (there was no way to do it before).
+- Messages now say units properly: "You've already sold 36 crates", not "36 crate" (`say_units` in accounts/choices.py).
+- Endpoint: `POST /api/listings/<id>/edit/`. Tests: 122.
+
+## Job 10: Going live - plan and real costs (14 Oct 2026)
+- **`docs/going-live.md`**: what hosting, a domain, WhatsApp codes and payments actually cost today, and the order to do things. Short version: **$0 to show farmers**, **about $13 a month** for a real site, **$3 a year** for a .co.zw name, **under 1c** per WhatsApp code, and **no payments company needed** because the app never touches anyone's money.
+- Code prepared for a real server (free, no decisions needed):
+  - `STATIC_ROOT` + **WhiteNoise**, so CSS and JavaScript are served properly with no second web server. New requirement: `whitenoise`. `staticfiles/` is git-ignored.
+  - `DJANGO_CACHE_TABLE` moves the rate-limit counts into a shared database table, so several server processes share one count instead of one each.
+- Still to do before real farmers use it: **photo storage** (uploads are wiped on every deploy; Cloudflare R2 is free up to 10 GB), `gunicorn` in requirements, change the staff password, error reporting.
+
+**Next:** photo storage (Cloudflare R2) when you're ready to put it online, or whatever you want built next.

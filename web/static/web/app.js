@@ -443,7 +443,9 @@
   // ---------- Photos: checked and made smaller in the browser before sending ----------
   const MAX_PHOTOS = 3;
   const OK_TYPES = ["image/jpeg", "image/png", "image/webp"];
-  let photos = [];   // data URLs of the shrunk photos
+  let photos = [];        // data URLs of newly added photos (shrunk in the browser)
+  let keptPhotos = [];    // photos already on the server: [{ id, url }]
+  let droppedPhotos = []; // ids of server photos the farmer removed
 
   /* Resize to at most 1280 px on the long side and save as JPEG at 72% quality.
      A 4 MB phone photo usually ends up around 150 KB: cheaper for the farmer to
@@ -465,23 +467,35 @@
     });
   }
 
+  /* Draws the photos already saved first, then the newly added ones. Removing a saved photo
+     remembers its id so the server can drop it when the farmer saves. */
   function drawPhotos() {
     $$(".photo-thumb", $("#photoPick")).forEach((x) => x.remove());
-    photos.forEach((src, i) => {
+    const all = keptPhotos.map((p) => ({ src: p.url, id: p.id })).concat(photos.map((src) => ({ src })));
+    all.forEach((item, i) => {
       const fig = document.createElement("figure");
       fig.className = "photo-thumb";
-      fig.innerHTML = `<img src="${src}" alt="Photo ${i + 1}"><button type="button" aria-label="Remove photo ${i + 1}"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>${i === 0 ? "<figcaption>Cover</figcaption>" : ""}`;
-      fig.querySelector("button").addEventListener("click", () => { photos.splice(i, 1); drawPhotos(); });
+      fig.innerHTML = `<img src="${esc(item.src)}" alt="Photo ${i + 1}"><button type="button" aria-label="Remove photo ${i + 1}"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>${i === 0 ? "<figcaption>Cover</figcaption>" : ""}`;
+      fig.querySelector("button").addEventListener("click", () => {
+        if (item.id != null) {
+          droppedPhotos.push(item.id);
+          keptPhotos = keptPhotos.filter((p) => p.id !== item.id);
+        } else {
+          photos.splice(i - keptPhotos.length, 1);
+        }
+        drawPhotos();
+      });
       $("#photoPick").insertBefore(fig, $("#photoAdd"));
     });
-    $("#photoAdd").hidden = photos.length >= MAX_PHOTOS;
+    $("#photoAdd").hidden = all.length >= MAX_PHOTOS;
   }
+  const photoCount = () => keptPhotos.length + photos.length;
 
   $("#photoInput").addEventListener("change", async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     for (const file of files) {
-      if (photos.length >= MAX_PHOTOS) { toast(`Up to ${MAX_PHOTOS} photos.`); break; }
+      if (photoCount() >= MAX_PHOTOS) { toast(`Up to ${MAX_PHOTOS} photos.`); break; }
       if (!OK_TYPES.includes(file.type)) { toast(`"${file.name}" isn't a JPG, PNG or WebP photo.`); continue; }
       if (file.size > 10 * 1024 * 1024) { toast(`"${file.name}" is bigger than 10 MB.`); continue; }
       try { photos.push(await shrinkPhoto(file)); } catch (err) { toast(`We couldn't open "${file.name}".`); }
@@ -496,6 +510,7 @@
     if (e.target.name === "crop") { updateSellUnits(); updateSellWhen(); }
     if (e.target.name === "when") updateSellWhen();
     if (["crop", "unit", "price"].includes(e.target.name)) updateSellCheck();
+    if (e.target.name === "price") warnAboutWaitingOffers();
   }));
 
   // Selling needs an account: logged-out farmers go to log in first, then come back here.
@@ -509,11 +524,76 @@
 
   function resetSell() {
     const f = $("#sellForm");
-    f.reset(); photos = []; drawPhotos();
+    f.reset(); photos = []; keptPhotos = []; droppedPhotos = []; drawPhotos();
     $("#descCount").textContent = "0";
     $("#sellCrop").value = "Tomatoes"; updateSellUnits(); $("#sellUnit").value = "crate";
     $("#sellHarvest").value = "";
+    editing = null;
+    $("#sellTitle").textContent = "List your produce";
+    $("#sellFrozen").hidden = true;
+    $("#sellOfferWarn").hidden = true;
+    $("#sellCrop").disabled = $("#sellUnit").disabled = false;
+    $("#sellSave").textContent = "Save as draft";
+    $("#sellPublish").textContent = "Publish listing";
+    $("#sellSave").hidden = false;
     updateSellWhen(); updateSellCheck();
+  }
+
+  /* ---------- Edit a listing ----------
+     The same form, filled in with what's already there. The farmer reaches it from
+     My account, which sends them to /?edit=<id>. */
+  let editing = null;
+  async function openEdit(id) {
+    const user = await needAccount("farmer", `/?edit=${id}`);
+    if (!user) return;
+    const res = await MarketAPI.getListing(id);
+    if (!res.ok || !res.body.is_mine) { toast(res.ok ? "That listing isn't yours." : res.body.error); return; }
+    const l = res.body;
+    resetSell();
+    editing = l;
+    const f = $("#sellForm");
+    f.crop.value = l.crop; updateSellUnits(); f.unit.value = l.unit;
+    f.variety.value = l.variety || "";
+    f.quantity.value = l.quantity;
+    f.price.value = l.price_usd;
+    f.price_zig.value = l.price_zig == null ? "" : l.price_zig;
+    f.province.value = l.province; f.district.value = l.district || "";
+    f.delivery.value = l.delivery;
+    f.description.value = l.description || "";
+    $("#descCount").textContent = String((l.description || "").length);
+    f.when.value = l.ready_in_days > 0 ? "soon" : "now";
+    updateSellWhen();
+    if (l.ready_in_days > 0) $("#sellDate").value = l.available_from;
+    else if (l.harvested_on) $("#sellHarvest").value = l.harvested_on;
+    f.sell_today.checked = !!l.sell_today;
+    keptPhotos = (l.photo_items || []).slice(); drawPhotos();
+    updateSellCheck();
+
+    const sold = l.quantity - l.quantity_left;
+    $("#sellTitle").textContent = "Edit your listing";
+    $("#sellSave").hidden = l.status !== "draft";          // a draft can still be saved unfinished
+    $("#sellSave").textContent = "Save as draft";
+    $("#sellPublish").textContent = l.status === "draft" ? "Publish listing" : "Save changes";
+    // Sold produce freezes the product and unit, because offers copied them.
+    if (sold > 0 || l.pending_offers) {
+      $("#sellCrop").disabled = $("#sellUnit").disabled = true;
+      $("#sellFrozen").hidden = false;
+      $("#sellFrozen").textContent = sold > 0
+        ? `You've sold ${sold} ${unitLabel(l.unit, sold)} from this listing, so the product and unit can't change, and the quantity can't go below ${sold}.`
+        : "This listing has offers waiting, so the product and unit can't change.";
+    }
+    $("#sellDialog").showModal();
+  }
+
+  // Changing the price while buyers are waiting: say what will happen, before saving.
+  function warnAboutWaitingOffers() {
+    const box = $("#sellOfferWarn");
+    if (!editing || !editing.pending_offers) { if (box) box.hidden = true; return; }
+    const changed = Number($("#sellPrice").value) !== Number(editing.price_usd);
+    box.hidden = !changed;
+    const n = editing.pending_offers;
+    box.textContent = `${n} buyer${n > 1 ? "s have offers" : " has an offer"} waiting at ${usd(editing.price_usd)}. `
+      + "Changing the price here doesn't change those offers: they stay as they were sent, and you can still accept or decline them.";
   }
 
   $("#sellForm").addEventListener("submit", async (e) => {
@@ -523,7 +603,7 @@
     const draft = e.submitter && e.submitter.value === "draft";
     // A draft can be half-finished; publishing needs every required box.
     if (!draft) {
-      const missing = $$("[required]", f).find((i) => !i.closest("[hidden]") && !i.value.trim());
+      const missing = $$("[required]", f).find((i) => !i.disabled && !i.closest("[hidden]") && !i.value.trim());
       if (missing) {
         const label = missing.closest("label").querySelector("span").textContent;
         $("#sellError").textContent = `Please fill in "${label}".`;
@@ -533,14 +613,20 @@
     }
     $("#sellError").textContent = "";
     const data = Object.fromEntries(new FormData(f));
+    // A disabled box isn't sent by the browser, so put the frozen product and unit back.
+    if (editing && $("#sellCrop").disabled) { data.crop = editing.crop; data.unit = editing.unit; }
     data.status = draft ? "draft" : "active";
     data.sell_today = !!data.sell_today;
     if (data.when === "now") { data.available = isoDay(0); data.harvested_on = data.harvested_on || isoDay(0); }
     else data.harvested_on = "";
     data.photos = photos.slice();
+    data.remove_photos = droppedPhotos.slice();
+    const wasEditing = editing;
     const btn = e.submitter; const label = btn.textContent;
-    btn.disabled = true; btn.textContent = draft ? "Saving…" : "Publishing…";
-    const res = await MarketAPI.createListing(data);
+    btn.disabled = true; btn.textContent = wasEditing && !draft ? "Saving…" : draft ? "Saving…" : "Publishing…";
+    let res = wasEditing ? await MarketAPI.updateListing(wasEditing.id, data) : await MarketAPI.createListing(data);
+    // Editing a draft and pressing Publish: save the changes first, then put it on the market.
+    if (res.ok && wasEditing && wasEditing.status === "draft" && !draft) res = await MarketAPI.publishListing(wasEditing.id);
     btn.disabled = false; btn.textContent = label;
     if (!res.ok) {
       const errs = res.body.errors || {};
@@ -550,6 +636,12 @@
     $("#sellDialog").close("send");
     const l = res.body;
     resetSell();
+    if (wasEditing) {
+      toast(wasEditing.status === "draft" && !draft ? "Published. Buyers can send offers now." : "Your listing is updated.");
+      if (new URLSearchParams(location.search).get("edit")) { location.href = "/account/"; return; }
+      loadListings();
+      return;
+    }
     if (draft) { toast("Saved as a draft. Find it in My account, under My listings."); return; }
     toast(l.ready_in_days > 0
       ? `Listed as coming soon (${weeksAway(l.ready_in_days)}, ready ${shortDate(l.available_from)}). Buyers can reserve it now.`
@@ -793,6 +885,8 @@
 
     await step("price check", updateSellCheck);
     step("server check", showServerCheck);
+    const wantsEdit = new URLSearchParams(location.search).get("edit");
+    if (wantsEdit) step("edit form", () => openEdit(Number(wantsEdit)));
     if (location.hash === "#sell") { history.replaceState(null, "", "/"); step("sell form", openSell); }
     if (location.hash === "#request") { history.replaceState(null, "", "/#requests"); step("request form", openRequest); }
     step("listings", () => sync(true));

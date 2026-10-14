@@ -14,6 +14,7 @@ from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 
+from accounts.choices import say_units
 from core.http import allow, json_error, read_json, throttle
 from listings.models import Listing
 
@@ -158,7 +159,7 @@ def order_action(request, order_id, action):
             if l.status != Listing.ACTIVE or l.quantity_left < 1:
                 return json_error("This listing is sold out.", status=409)
             if l.quantity_left < o.quantity:
-                return json_error(f"Only {l.quantity_left} left, but this offer asks for {o.quantity}. "
+                return json_error(f"Only {say_units(l.unit, l.quantity_left)} left, but this offer asks for {o.quantity}. "
                                   "Decline it, or ask the buyer to send a smaller offer.", status=409)
             l.quantity_left -= o.quantity
             l.save(update_fields=["quantity_left", "updated_at"])

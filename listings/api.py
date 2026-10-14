@@ -6,6 +6,7 @@ GET  /api/stats/                   open listings, verified farmers, listings per
 GET  /api/listings/                the market: filters, sort, pages of 12
 POST /api/listings/                create (form fields + up to 3 photo files)
 GET  /api/listings/<id>/           one listing in full
+POST /api/listings/<id>/edit/      owner only: change price, quantity, photos ...
 POST /api/listings/<id>/sold-out/  owner only
 POST /api/listings/<id>/publish/   owner only: draft -> on the market
 POST /api/listings/<id>/report/    anyone logged in: flag a listing for staff
@@ -22,7 +23,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from accounts.choices import (CROPS, DELIVERY_CHOICES, POULTRY, PRICE_FRESH_DAYS, PRODUCT_UNITS, PRODUCTS,
-                              PROVINCES, READY_WINDOW_DAYS, UNIT_CHOICES, CROP_UNITS, units_for)
+                              PROVINCES, READY_WINDOW_DAYS, UNIT_CHOICES, CROP_UNITS, say_units, units_for)
 from core.http import allow, json_error, rate_limited, read_json, throttle
 from orders.records import seller_records, seller_reviews
 from prices.models import PriceReport, compare, latest_price, latest_prices
@@ -144,8 +145,12 @@ def _market_queryset(params):
     return qs.order_by("-created_at")
 
 
-def _read_listing_form(data, files, draft):
-    """Check a Sell form. Returns (cleaned dict, errors dict)."""
+def _read_listing_form(data, files, draft, existing=None):
+    """Check a Sell form. Returns (cleaned dict, errors dict, photo uploads).
+
+    `existing` is the listing being edited (None when creating). Editing is stricter in one way
+    and looser in another: the product and unit are frozen once there are orders, and a ready date
+    that has already passed is kept as it is instead of being refused."""
     errors, out = {}, {}
     today = timezone.localdate()
 
@@ -193,8 +198,10 @@ def _read_listing_form(data, files, draft):
     if len(variety) > 60:
         errors["variety"] = "Use 60 characters or fewer."
 
-    available = parse_date(data.get("available") or "") or today
-    if available < today:
+    available = parse_date(data.get("available") or "") or (existing.available_from if existing else today)
+    if existing and available == existing.available_from:
+        pass                                          # unchanged: a date that has already passed is fine
+    elif available < today:
         errors["available"] = "The ready date can't be in the past."
     elif (available - today).days > READY_WINDOW_DAYS:
         errors["available"] = f"You can list up to {READY_WINDOW_DAYS} days before it's ready. Please come back closer to the date."
@@ -212,6 +219,16 @@ def _read_listing_form(data, files, draft):
     photos = files.getlist("photos") if files else []
     if len(photos) > MAX_PHOTOS:
         errors["photos"] = f"Up to {MAX_PHOTOS} photos."
+
+    if existing:
+        sold = existing.quantity - existing.quantity_left
+        if qty is not None and qty < sold and "quantity" not in errors:
+            errors["quantity"] = f"You've already sold {say_units(existing.unit, sold)}. The quantity can't go below that."
+        if existing.orders.exists():                  # offers and orders copied the product and unit
+            if crop != existing.crop:
+                errors["crop"] = "This listing already has offers, so the product can't be changed. Make a new listing instead."
+            if unit and unit != existing.unit:
+                errors["unit"] = "This listing already has offers, so the unit can't be changed. Make a new listing instead."
 
     if not draft:                                     # publishing needs everything
         for field, value, message in [("quantity", qty, "Enter how much you have."), ("price", price, "Enter your price per unit."),
@@ -287,11 +304,14 @@ def listing_detail(request, listing_id):
     f = l.farmer
     data.update(
         description=l.description, photos=photo_urls(l, request), is_mine=mine,
+        photo_items=[{"id": p.id, "url": request.build_absolute_uri(p.image.url)} for p in l.photos.all()],
         sold_out=l.quantity_left < 1 or l.status == Listing.SOLD_OUT,
         farmer={**farmer_card(f, records), "member_since": f.date_joined.strftime("%Y-%m"),
                 "verified_on": f.verified_farmer_on.isoformat() if f.is_verified_farmer and f.verified_farmer_on else None,
                 "reviews": seller_reviews(f)},
     )
+    if mine:                                           # the Edit form warns about offers already waiting
+        data["pending_offers"] = l.orders.filter(status="pending").count()
     open_ = Listing.objects.open().exclude(pk=l.pk)
     data["more_from_farmer"] = [{"id": x.id, "crop": x.crop, "variety": x.variety, "price_usd": float(x.price_usd), "unit": x.unit}
                                 for x in open_.filter(farmer=f)[:3]]
@@ -307,6 +327,66 @@ def _own_listing(request, listing_id):
     if l.farmer_id != request.user.id:
         return None, json_error("Only the farmer who listed this can change it.", status=403)
     return l, None
+
+
+@allow("POST")
+def edit_listing(request, listing_id):
+    """The farmer changes their own listing (a multipart form, like creating one).
+
+    Photos: `photos` are new files to add, `remove_photos` are the ids of photos to drop.
+    Offers that are already waiting keep the price they were sent at, because an agreed
+    price must never change under someone. The page warns the farmer about that before saving.
+    """
+    l, err = _own_listing(request, listing_id)
+    if err:
+        return err
+    if l.status == Listing.HIDDEN:
+        return json_error("Staff have hidden this listing. WhatsApp us on +263 78 257 3320 and we'll help.", status=403)
+
+    draft = l.status == Listing.DRAFT
+    cleaned, errors, uploads = _read_listing_form(request.POST, request.FILES, draft, existing=l)
+
+    # Which photos to drop, and does what's left fit in MAX_PHOTOS?
+    keep_ids = {str(p.id) for p in l.photos.all()}
+    drop = {i for i in request.POST.getlist("remove_photos") if i in keep_ids}
+    staying = len(keep_ids) - len(drop)
+    if staying + len(uploads) > MAX_PHOTOS:
+        errors["photos"] = f"Up to {MAX_PHOTOS} photos. Remove one first."
+
+    cleaned_photos = []
+    if not errors:
+        for up in uploads:
+            try:
+                cleaned_photos.append(clean_photo(up))
+            except PhotoError as e:
+                errors["photos"] = str(e)
+                break
+    if errors:
+        return json_error("Please check the form.", errors=errors)
+
+    with transaction.atomic():
+        # Lock the row: an offer being accepted at the same moment also locks it, so the
+        # two can't both change what's left and lose one of the changes.
+        l = Listing.objects.select_for_update().get(pk=l.pk)
+        sold = l.quantity - l.quantity_left
+        for field, value in cleaned.items():
+            setattr(l, field, value)
+        l.quantity_left = max(0, cleaned["quantity"] - sold)
+        if l.status == Listing.SOLD_OUT and l.quantity_left > 0:
+            l.status = Listing.ACTIVE                 # more stock arrived: back on the market
+        elif l.status == Listing.ACTIVE and l.quantity_left < 1:
+            l.status = Listing.SOLD_OUT
+        l.save()
+        if drop:
+            l.photos.filter(pk__in=drop).delete()
+        position = (l.photos.aggregate(n=Count("id"))["n"]) or 0
+        for i, f in enumerate(cleaned_photos):
+            ListingPhoto.objects.create(listing=l, image=f, position=position + i)
+
+    data = listing_json(l, request)
+    data["photos"] = photo_urls(l, request)
+    data["sold"] = sold
+    return JsonResponse(data)
 
 
 @allow("POST")

@@ -90,6 +90,25 @@ window.MarketAPI = (function () {
   // Remember who is logged in, so a page can still say hello when the connection drops.
   const remember = (user) => store("murimi-demo-session", user || null);
 
+  /* Send the Sell form (creating or editing). A multipart form, because photos are FILES.
+     The page shrinks photos to small JPEGs first (data: addresses); here they become files
+     again. The server checks everything again (never trust the browser). */
+  async function sendListing(url, data) {
+    const form = new FormData();
+    ["crop", "variety", "quantity", "unit", "price", "price_zig", "available", "harvested_on", "province",
+      "district", "delivery", "description", "status"].forEach((k) => { if (data[k] != null && data[k] !== "") form.append(k, data[k]); });
+    if (data.sell_today) form.append("sell_today", "1");
+    (data.photos || []).forEach((dataUrl, i) => form.append("photos", dataUrlToBlob(dataUrl), `photo-${i + 1}.jpg`));
+    (data.remove_photos || []).forEach((id) => form.append("remove_photos", id));
+    try {
+      const res = await fetch(url, { method: "POST", body: form, credentials: "same-origin",
+        headers: { "X-CSRFToken": csrfToken(), Accept: "application/json" } });
+      return { ok: res.ok, status: res.status, body: await res.json() };
+    } catch (e) {
+      return { ok: false, status: 0, body: { error: "Can't reach the server. Check your connection and try again.", errors: {} } };
+    }
+  }
+
   // "data:image/jpeg;base64,..." -> a file the form can send
   function dataUrlToBlob(dataUrl) {
     const [head, b64] = dataUrl.split(",");
@@ -236,26 +255,18 @@ window.MarketAPI = (function () {
     /* POST /api/orders/<id>/rating/  { stars: 1-5, comment }  once per side, after completed */
     rateOrder(orderId, stars, comment) { return call("POST", `/api/orders/${orderId}/rating/`, { stars: Number(stars), comment }); },
 
+    /* REAL: POST /api/listings/<id>/publish/  (owner only: a draft goes on the market) */
+    publishListing(listingId) { return call("POST", `/api/listings/${listingId}/publish/`); },
+
     /* REAL: POST /api/listings/<id>/sold-out/  (owner only) */
     markSoldOut(listingId) { return call("POST", `/api/listings/${listingId}/sold-out/`); },
 
-    /* REAL: POST /api/listings/  (a multipart form: the fields + up to 3 photo FILES).
-       The page shrinks photos to small JPEGs first (data: addresses); here they become
-       files again. The server checks everything again (never trust the browser). */
-    async createListing(data) {
-      const form = new FormData();
-      ["crop", "variety", "quantity", "unit", "price", "price_zig", "available", "harvested_on", "province",
-        "district", "delivery", "description", "status"].forEach((k) => { if (data[k] != null && data[k] !== "") form.append(k, data[k]); });
-      if (data.sell_today) form.append("sell_today", "1");
-      (data.photos || []).forEach((dataUrl, i) => form.append("photos", dataUrlToBlob(dataUrl), `photo-${i + 1}.jpg`));
-      try {
-        const res = await fetch("/api/listings/", { method: "POST", body: form, credentials: "same-origin",
-          headers: { "X-CSRFToken": csrfToken(), Accept: "application/json" } });
-        return { ok: res.ok, status: res.status, body: await res.json() };
-      } catch (e) {
-        return { ok: false, status: 0, body: { error: "Can't reach the server. Check your connection and try again.", errors: {} } };
-      }
-    },
+    /* REAL: POST /api/listings/  (a multipart form: the fields + up to 3 photo FILES) */
+    createListing(data) { return sendListing("/api/listings/", data); },
+
+    /* REAL: POST /api/listings/<id>/edit/  (the same form; `remove_photos` drops photos by id).
+       Offers already waiting keep the price they were sent at. */
+    updateListing(id, data) { return sendListing(`/api/listings/${id}/edit/`, data); },
 
     fairPrice,
     daysUntil,

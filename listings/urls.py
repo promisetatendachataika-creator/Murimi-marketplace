@@ -9,6 +9,7 @@ urlpatterns = [
     path("stats/", api.stats, name="stats"),
     path("listings/", api.listings, name="list"),                                   # GET market / POST create
     path("listings/<int:listing_id>/", api.listing_detail, name="detail"),
+    path("listings/<int:listing_id>/edit/", api.edit_listing, name="edit"),
     path("listings/<int:listing_id>/sold-out/", api.mark_sold_out, name="sold_out"),
     path("listings/<int:listing_id>/publish/", api.publish, name="publish"),
     path("listings/<int:listing_id>/report/", api.report_listing, name="report"),

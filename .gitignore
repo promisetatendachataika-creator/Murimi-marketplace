@@ -25,3 +25,6 @@ backups/
 .idea/
 Thumbs.db
 desktop.ini
+
+# Collected static files (made by `manage.py collectstatic`, never edited by hand)
+staticfiles/

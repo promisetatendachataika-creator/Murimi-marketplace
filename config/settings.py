@@ -104,6 +104,7 @@ INSTALLED_APPS = [
 # --- Middleware: checks every request walks through, in order -----------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",      # serves our CSS, JS and images when live
     "core.security.ContentSecurityPolicyMiddleware",   # tells browsers which scripts may run
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -135,7 +136,15 @@ if len(sys.argv) > 1 and sys.argv[1] == "test":
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 # Rate limits (log-in tries, codes) are counted in Django's cache.
-CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "murimi"}}
+# Rate limits (log-in tries, codes, spam caps) are counted here.
+# On the laptop: this process's own memory. Live: set DJANGO_CACHE_TABLE in .env and run
+#   python manage.py createcachetable
+# so that several server processes share ONE count, instead of one each.
+if os.environ.get("DJANGO_CACHE_TABLE"):
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.db.DatabaseCache",
+                          "LOCATION": os.environ["DJANGO_CACHE_TABLE"]}}
+else:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "murimi"}}
 
 # The "front door map": the first urls.py Django reads for every request.
 ROOT_URLCONF = "config.urls"
@@ -197,6 +206,16 @@ USE_TZ = True                 # the DB stores UTC; Django converts for display
 
 
 STATIC_URL = "static/"
+# Where `manage.py collectstatic` puts every CSS, JS and image file for a real server to serve.
+# Nothing is needed on the laptop: with DEBUG on, Django finds them in each app's static/ folder.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+# WhiteNoise lets Django serve those files itself, gzipped, so going live needs no second
+# web server. We don't use its hashed-filename storage: the {% asset %} tag already adds
+# ?v=<file time> to every link, which is what stops a browser using an old copy.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # Uploaded files (listing photos). On the laptop Django serves them; when we go live,
 # the web server or a storage service does.

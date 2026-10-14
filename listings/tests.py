@@ -336,3 +336,150 @@ class StaffPageSurvivesMissingTableTests(TestCase):
             r = c.get("/admin/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "the database is behind the code")
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class EditListingTests(TestCase):
+    def setUp(self):
+        self.farmer = User.objects.create_user("+263771111111", "pw-123456", name="Tendai Moyo", role="farmer")
+        self.other = User.objects.create_user("+263772222222", "pw-123456", name="Other Farmer", role="farmer")
+        self.buyer = User.objects.create_user("+263713333333", "pw-123456", name="Rudo Chari", role="buyer")
+        self.listing = make_listing(self.farmer, quantity=100, quantity_left=100, price_usd=Decimal("6.50"))
+
+    def form(self, **kw):
+        data = dict(crop="Tomatoes", variety="Roma", quantity=100, unit="crate", price="6.50",
+                    province="Harare", district="Ruwa", delivery="both", description="Firm and fresh",
+                    available=self.listing.available_from.isoformat())
+        data.update(kw)
+        return {k: v for k, v in data.items() if v is not None}
+
+    def save(self, user, listing=None, files=None, **kw):
+        return Browser(user).post(f"/api/listings/{(listing or self.listing).id}/edit/", self.form(**kw), files)
+
+    def an_offer(self, quantity=10):
+        from orders.models import Order
+        return Order.objects.create(listing=self.listing, farmer=self.farmer, buyer=self.buyer, crop=self.listing.crop,
+                                    variety=self.listing.variety, unit=self.listing.unit, price_usd=self.listing.price_usd,
+                                    quantity=quantity, delivery="pickup")
+
+    def test_only_the_owner_can_edit(self):
+        self.assertEqual(self.save(None).status_code, 401)
+        self.assertEqual(self.save(self.other).status_code, 403)
+        self.assertEqual(self.save(self.buyer).status_code, 403)
+
+    def test_price_and_description_change(self):
+        r = self.save(self.farmer, price="7.25", description="Price up: the market moved.")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["price_usd"], 7.25)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.price_usd, Decimal("7.25"))
+        self.assertEqual(self.listing.description, "Price up: the market moved.")
+
+    def test_a_waiting_offer_keeps_the_price_it_was_sent_at(self):
+        offer = self.an_offer()
+        self.save(self.farmer, price="9.99")
+        offer.refresh_from_db()
+        self.assertEqual(offer.price_usd, Decimal("6.50"))
+        self.assertEqual(offer.status, "pending")       # still the farmer's to accept or decline
+
+    def test_quantity_cannot_drop_below_what_is_sold(self):
+        self.listing.quantity_left = 70                 # 30 sold
+        self.listing.save()
+        r = self.save(self.farmer, quantity=20)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("already sold 30 crates", r.json()["errors"]["quantity"])
+        r = self.save(self.farmer, quantity=30)         # exactly what's sold is allowed: nothing left
+        self.assertEqual(r.status_code, 200, r.content)
+        self.listing.refresh_from_db()
+        self.assertEqual((self.listing.quantity_left, self.listing.status), (0, "sold_out"))
+
+    def test_more_stock_puts_a_sold_out_listing_back_on_the_market(self):
+        self.listing.quantity_left, self.listing.status = 0, "sold_out"
+        self.listing.save()
+        r = self.save(self.farmer, quantity=150)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.listing.refresh_from_db()
+        self.assertEqual((self.listing.quantity, self.listing.quantity_left, self.listing.status), (150, 50, "active"))
+
+    def test_product_and_unit_freeze_once_there_are_offers(self):
+        r = self.save(self.farmer, crop="Potatoes", unit="pocket_15kg")      # no offers yet: fine
+        self.assertEqual(r.status_code, 200, r.content)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.crop, "Potatoes")
+        self.an_offer()
+        r = self.save(self.farmer, crop="Maize", unit="tonne")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("can't be changed", r.json()["errors"]["crop"])
+
+    def test_a_ready_date_that_has_passed_is_kept_but_a_new_past_date_is_refused(self):
+        old = timezone.localdate() - timedelta(days=5)
+        Listing.objects.filter(pk=self.listing.pk).update(available_from=old)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.save(self.farmer, price="7.00").status_code, 200)
+        r = self.save(self.farmer, available=(timezone.localdate() - timedelta(days=2)).isoformat())
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("available", r.json()["errors"])
+
+    def test_photos_added_and_removed_up_to_three(self):
+        for i in range(2):
+            ListingPhoto.objects.create(listing=self.listing, position=i,
+                                        image=SimpleUploadedFile(f"p{i}.jpg", photo_bytes(), "image/jpeg"))
+        first = self.listing.photos.first()
+        r = Browser(self.farmer).get(f"/api/listings/{self.listing.id}/")
+        ids = [p["id"] for p in r.json()["photo_items"]]
+        self.assertEqual(len(ids), 2)
+        # swap one photo for two new ones: 2 - 1 + 2 = 3
+        files = {"photos": [SimpleUploadedFile("new1.jpg", photo_bytes(), "image/jpeg"),
+                            SimpleUploadedFile("new2.jpg", photo_bytes(), "image/jpeg")]}
+        r = Browser(self.farmer).post(f"/api/listings/{self.listing.id}/edit/",
+                                      {**self.form(), "remove_photos": [str(first.id)]}, files)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.listing.photos.count(), 3)
+        self.assertFalse(self.listing.photos.filter(pk=first.id).exists())
+        # a fourth is refused
+        r = Browser(self.farmer).post(f"/api/listings/{self.listing.id}/edit/", self.form(),
+                                      {"photos": SimpleUploadedFile("x.jpg", photo_bytes(), "image/jpeg")})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("Remove one first", r.json()["errors"]["photos"])
+
+    def test_a_listing_hidden_by_staff_cannot_be_edited_by_the_farmer(self):
+        self.listing.status = "hidden"
+        self.listing.save()
+        r = self.save(self.farmer)
+        self.assertEqual(r.status_code, 403)
+        self.assertIn("Staff have hidden", r.json()["error"])
+
+    def test_a_draft_may_be_half_finished_but_a_live_listing_may_not(self):
+        draft = make_listing(self.farmer, status="draft", quantity=0, quantity_left=0, price_usd=Decimal("0"))
+        r = Browser(self.farmer).post(f"/api/listings/{draft.id}/edit/", {"crop": "Tomatoes", "unit": "crate"})
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self.save(self.farmer, district="")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("district", r.json()["errors"])
+
+    def test_edit_does_not_change_the_owner_or_sneak_in_a_status(self):
+        r = self.save(self.farmer, status="hidden", farmer=self.other.id, quantity_left=999)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.listing.refresh_from_db()
+        self.assertEqual((self.listing.farmer_id, self.listing.status), (self.farmer.id, "active"))
+        self.assertEqual(self.listing.quantity_left, 100)
+
+
+class EditFormDataTests(TestCase):
+    """What the Edit form needs from the server before it can be filled in."""
+
+    def setUp(self):
+        self.farmer = User.objects.create_user("+263771111111", "pw-123456", name="Tendai Moyo", role="farmer")
+        self.buyer = User.objects.create_user("+263713333333", "pw-123456", name="Rudo Chari", role="buyer")
+        self.listing = make_listing(self.farmer)
+
+    def test_owner_sees_waiting_offers_but_buyers_never_do(self):
+        from orders.models import Order
+        Order.objects.create(listing=self.listing, farmer=self.farmer, buyer=self.buyer, crop="Tomatoes",
+                             unit="crate", price_usd=Decimal("6.50"), quantity=5, delivery="pickup")
+        own = Browser(self.farmer).get(f"/api/listings/{self.listing.id}/").json()
+        self.assertEqual(own["pending_offers"], 1)
+        self.assertTrue(own["is_mine"])
+        other = Browser(self.buyer).get(f"/api/listings/{self.listing.id}/").json()
+        self.assertNotIn("pending_offers", other)
+        self.assertFalse(other["is_mine"])

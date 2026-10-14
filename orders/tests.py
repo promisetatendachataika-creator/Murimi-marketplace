@@ -135,7 +135,7 @@ class ActionTests(TestCase):
         self.assertEqual(self.fb.post(f"/api/orders/{a}/accept/").status_code, 200)
         r = self.fb.post(f"/api/orders/{b}/accept/")
         self.assertEqual(r.status_code, 409)
-        self.assertIn("Only 10 left", r.json()["error"])
+        self.assertIn("Only 10 crates left", r.json()["error"])
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.quantity_left, 10)
 
