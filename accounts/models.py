@@ -12,11 +12,12 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
 from .choices import BUSINESS_CHOICES, ROLE_BOTH, ROLE_BUYER, ROLE_CHOICES, ROLE_FARMER  # noqa: F401
-from .phone import normalize_phone
+from .phone import normalize_phone, try_normalize_phone
 
 
 class UserManager(BaseUserManager):
@@ -75,9 +76,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Meta:
         ordering = ["-date_joined"]
 
+    def clean(self):
+        """Checked by every form, including the staff screen in /admin/."""
+        super().clean()
+        if self.phone and not try_normalize_phone(self.phone):
+            raise ValidationError({"phone": "Enter a Zimbabwe mobile number, like 077 123 4567 or +263 77 123 4567."})
+
     def save(self, *args, **kwargs):
-        # One form for everything we search by: lower-case username and email, empty -> NULL.
-        # (NULL, not "", because UNIQUE allows many NULLs but only one "".)
+        """One form for everything we search by, whichever screen the account came from.
+
+        The phone is stored as +2637XXXXXXXX however it was typed. Without this, an account
+        added in /admin/ keeps the raw "0771234567", and then nobody can log in as them:
+        logging in normalises what is typed and looks for the +263 form, which isn't there.
+        Username and email are lower-cased, and empty becomes NULL (not "", because UNIQUE
+        allows many NULLs but only one "").
+        """
+        self.phone = try_normalize_phone(self.phone) or self.phone
         self.username = (self.username or "").strip().lower() or None
         self.email = (self.email or "").strip().lower() or None
         super().save(*args, **kwargs)

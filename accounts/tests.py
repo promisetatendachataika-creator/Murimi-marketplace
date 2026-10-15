@@ -274,3 +274,40 @@ class WhatAnAccountCanDoTests(TestCase):
 
     def test_logged_out_has_no_user(self):
         self.assertIsNone(Client().get("/api/auth/me/").json()["user"])
+
+
+class PhoneIsAlwaysStoredTheSameWayTests(TestCase):
+    """However an account is made, the number is stored as +2637XXXXXXXX.
+
+    Added after a field officer created in /admin/ kept the raw "0718989115" and
+    then could not log in: logging in normalises what is typed and looks for the
+    +263 form, which wasn't there.
+    """
+
+    def test_every_way_of_typing_a_number_is_stored_the_same(self):
+        for typed in ["0718989115", "718989115", "263718989115", "+263 71 898 9115", "+263-71-898-9115"]:
+            u = User(name="Chimuti", phone=typed, role="farmer")
+            u.set_password("a-strong-pass-123")
+            u.save()
+            self.assertEqual(u.phone, "+263718989115", f"typed as {typed}")
+            u.delete()
+
+    def test_an_account_made_the_admin_way_can_log_in(self):
+        from django.test import Client
+        u = User(name="Chimuti", phone="0718989115", is_staff=True)
+        u.set_password("Field-officer-pass-1")
+        u.save()
+        c = Client(enforce_csrf_checks=True)
+        c.get("/")
+        r = c.post("/api/auth/login/", json.dumps({"identifier": "0718989115", "password": "Field-officer-pass-1"}),
+                   content_type="application/json", HTTP_X_CSRFTOKEN=c.cookies["csrftoken"].value)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["user"]["phone"], "+263718989115")
+        # ...and through the staff screen too
+        self.assertTrue(Client().login(username="+263718989115", password="Field-officer-pass-1"))
+
+    def test_a_number_that_is_not_a_zimbabwe_mobile_is_refused_by_forms(self):
+        from django.core.exceptions import ValidationError
+        for bad in ["12345", "+44 7700 900000", "0612345678"]:
+            with self.assertRaises(ValidationError, msg=bad):
+                User(name="X", phone=bad, role="farmer").full_clean()
