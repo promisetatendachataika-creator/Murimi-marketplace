@@ -101,7 +101,7 @@
 
     // Contact reveal: the number only arrives from the API after "accepted".
     if (o.other_party.phone) {
-      const text = encodeURIComponent(`Hello ${o.other_party.name}, this is about the Murimi order for ${o.quantity} ${unitLabel(o.unit, o.quantity)} of ${o.crop.toLowerCase()}.`);
+      const text = encodeURIComponent(`Hello ${o.other_party.name}, this is about the Murimi order for ${o.quantity} ${unitLabel(o.unit, o.quantity)} of ${(o.product_name || o.crop).toLowerCase()}.`);
       action += `<div class="contact">
         <p>WhatsApp ${esc(o.other_party.name)}: <span class="phone">${esc(prettyPhone(o.other_party.phone))}</span></p>
         <a class="btn btn-whatsapp" href="https://wa.me/${o.other_party.phone.replace("+", "")}?text=${text}" rel="noopener" target="_blank">Open WhatsApp</a>
@@ -125,7 +125,7 @@
       ${thumb(o.crop)}
       <div class="order-main">
         ${kind}
-        <h3>${esc(amountOf(o.quantity, o.unit, o.crop))} <span class="variety">${esc(o.variety)}</span></h3>
+        <h3>${esc(amountOf(o.quantity, o.unit, o.product_name || o.crop))} <span class="variety">${esc(o.variety)}</span></h3>
         <p class="order-who">${who}${endStop(o.other_party.name)} Sent ${when(o.created_at)}.</p>
         ${o.message ? `<blockquote>${esc(o.message)}</blockquote>` : ""}
         <dl class="order-facts">
@@ -244,7 +244,8 @@
       $("#panel-listings").innerHTML = help("listings") + `<div class="empty-box"><p>You haven't listed anything yet. <a href="/#browse">List your produce</a></p></div>`;
       return;
     }
-    const label = (l) => l.status === "draft" ? ["draft", "Draft: only you can see it"]
+    const label = (l) => l.status === "review" ? ["soon", "Waiting for Murimi staff to check this product"]
+      : l.status === "draft" ? ["draft", "Draft: only you can see it"]
       : l.status === "sold_out" ? ["sold", "Sold out"]
       : l.ready_in_days > 0 ? ["soon", `Coming soon: ready ${shortDate(l.available_from)}`] : ["live", "On the market"];
     $("#panel-listings").innerHTML = help("listings") + rows.map((l) => {
@@ -253,7 +254,7 @@
       return `<article class="mine">
         ${thumb(l.crop)}
         <div class="order-main">
-          <h3>${esc(l.crop)} <span class="variety">${esc(l.variety)}</span></h3>
+          <h3>${esc(l.product_name || l.crop)} <span class="variety">${esc(l.variety)}</span></h3>
           <p class="pill pill-${cls}">${text}</p>
           <dl class="order-facts">
             <div><dt>Left</dt><dd>${l.quantity_left} of ${l.quantity} ${unitLabel(l.unit, l.quantity)}</dd></div>

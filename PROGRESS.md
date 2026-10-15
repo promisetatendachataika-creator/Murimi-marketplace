@@ -256,4 +256,14 @@ Promise tried the site on his phone and found four things:
 - **These legal pages are a draft, not legal advice.** See `docs/going-live.md`: Zimbabwe's Cyber and Data Protection Act also appears to require a POTRAZ licence and a Data Protection Officer.
 - Tests: 129, including one that fails if a WhatsApp link ever goes back to opening an empty chat.
 
+## "Other" produce now goes past staff first (15 Oct 2026)
+Promise's idea: a farmer choosing **Other** should be able to type what it is, and staff should decide whether it gets listed.
+- The Sell form shows a **"What is it?"** box as soon as Other is chosen. The name is checked: letters and numbers only, 40 characters, and it is refused if it's already on our product list.
+- That listing is saved as **"Waiting for Murimi staff to check this product"** instead of going on the market. Buyers can't see it, can't open its page, and can't send offers on it.
+- Staff get a tile on the back office home page (**"New products waiting for your OK"**, showing the names), and two actions: **approve** (it goes on the market) or **decline** (back to the farmer as a draft).
+- Once approved, the typed name is shown everywhere instead of the word "Other": market cards, the listing page and its title, WhatsApp share text, My account, and orders. Orders copy the name too, so an old order still says "Butternuts" rather than "Other".
+- New: `Listing.other_product`, the `review` status, `Listing.product_name`, `Order.other_product`.
+- **Bug this uncovered:** `api.js` sends a fixed list of form fields, and `other_product` wasn't in it, so nothing the farmer typed ever reached the server. The Django tests all passed because they post straight to the API. There is now a test that reads the Sell form and fails if the page collects a field it never sends.
+- Tests: 137.
+
 **Next:** photo storage (Cloudflare R2) when you're ready to put it online, or whatever you want built next.

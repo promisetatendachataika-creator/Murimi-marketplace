@@ -21,7 +21,7 @@ class PhotoInline(admin.TabularInline):
 class ListingAdmin(admin.ModelAdmin):
     """Staff moderation: find listings, hide bad ones, put them back."""
 
-    list_display = ["id", "crop", "variety", "farmer", "province", "price_usd", "quantity_left", "quantity",
+    list_display = ["id", "product", "variety", "farmer", "province", "price_usd", "quantity_left", "quantity",
                     "status", "open_reports", "available_from", "created_at"]
     list_filter = ["status", "crop", "province", "sell_today", "farmer__is_verified_farmer"]
     search_fields = ["crop", "variety", "district", "description", "farmer__name", "farmer__phone"]
@@ -29,7 +29,12 @@ class ListingAdmin(admin.ModelAdmin):
     raw_id_fields = ["farmer"]
     date_hierarchy = "created_at"
     inlines = [PhotoInline]
-    actions = ["hide", "show_again"]
+    actions = ["approve_product", "decline_product", "hide", "show_again"]
+
+    @admin.display(description="Product", ordering="crop")
+    def product(self, obj):
+        """Shows what the farmer typed when they chose "Other"."""
+        return format_html('{} <b>{}</b>', "NEW:", obj.other_product) if obj.other_product else obj.crop
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_open_reports=Count("reports", filter=Q(reports__status="open")))
@@ -37,6 +42,20 @@ class ListingAdmin(admin.ModelAdmin):
     @admin.display(description="Reports", ordering="_open_reports")
     def open_reports(self, obj):
         return obj._open_reports or ""
+
+    @admin.action(description='Approve this new product and put the listing on the market')
+    def approve_product(self, request, queryset):
+        waiting = queryset.filter(status=Listing.REVIEW)
+        names = sorted({l.other_product for l in waiting if l.other_product})
+        n = waiting.update(status=Listing.ACTIVE)
+        self.message_user(request, f"{n} listing(s) now on the market."
+                                   + (f" New products: {', '.join(names)}." if names else ""))
+
+    @admin.action(description="Decline this new product (the farmer keeps it as a draft)")
+    def decline_product(self, request, queryset):
+        n = queryset.filter(status=Listing.REVIEW).update(status=Listing.DRAFT)
+        self.message_user(request, f"{n} listing(s) sent back to the farmer as a draft. "
+                                   "WhatsApp them to say why.")
 
     @admin.action(description="Hide from the market")
     def hide(self, request, queryset):

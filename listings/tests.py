@@ -483,3 +483,91 @@ class EditFormDataTests(TestCase):
         other = Browser(self.buyer).get(f"/api/listings/{self.listing.id}/").json()
         self.assertNotIn("pending_offers", other)
         self.assertFalse(other["is_mine"])
+
+
+class OtherProductTests(TestCase):
+    """A product not on our list: the farmer types it, staff check it before buyers see it."""
+
+    def setUp(self):
+        self.farmer = User.objects.create_user("+263771111111", "pw-123456", name="Tendai Moyo", role="farmer")
+        self.buyer = User.objects.create_user("+263713333333", "pw-123456", name="Rudo Chari", role="buyer")
+        self.staff = User.objects.create_user("+263780000007", "pw-123456", name="Staff", role="", is_staff=True, is_superuser=True)
+
+    def sell(self, user=None, **kw):
+        data = dict(crop="Other", other_product="Butternuts", quantity=50, unit="crate", price="4.50",
+                    province="Harare", district="Ruwa", delivery="both")
+        data.update(kw)
+        return Browser(user or self.farmer).post("/api/listings/", {k: v for k, v in data.items() if v is not None})
+
+    def test_other_needs_a_name_and_the_name_is_checked(self):
+        self.assertIn("other_product", self.sell(other_product=None).json()["errors"])
+        self.assertIn("other_product", self.sell(other_product="   ").json()["errors"])
+        self.assertIn("other_product", self.sell(other_product="x" * 41).json()["errors"])
+        self.assertIn("other_product", self.sell(other_product="<script>x</script>").json()["errors"])
+        r = self.sell(other_product="Tomatoes")                   # already on the list
+        self.assertIn("already in the list", r.json()["errors"]["other_product"])
+
+    def test_it_waits_for_staff_and_buyers_cannot_see_it_yet(self):
+        r = self.sell()
+        self.assertEqual(r.status_code, 201, r.content)
+        body = r.json()
+        self.assertEqual(body["status"], "review")
+        self.assertEqual(body["product_name"], "Butternuts")
+        listing_id = body["id"]
+        # not on the market, and the page is hidden from everyone but the owner and staff
+        self.assertEqual(Browser().get("/api/listings/").json()["count"], 0)
+        self.assertEqual(Browser(self.buyer).get(f"/api/listings/{listing_id}/").status_code, 404)
+        self.assertEqual(Browser(self.farmer).get(f"/api/listings/{listing_id}/").status_code, 200)
+        self.assertEqual(Browser(self.staff).get(f"/api/listings/{listing_id}/").status_code, 200)
+        # ...and no offers can be sent to it
+        b = Browser(self.buyer)
+        r = b.c.post(f"/api/listings/{listing_id}/offers/", json.dumps({"quantity": 1, "delivery": "pickup"}),
+                     content_type="application/json", HTTP_X_CSRFTOKEN=b.c.cookies["csrftoken"].value)
+        self.assertEqual(r.status_code, 404)
+
+    def test_staff_approve_it_and_then_everyone_sees_the_typed_name(self):
+        listing_id = self.sell().json()["id"]
+        c = Client()
+        c.force_login(self.staff)
+        c.post("/admin/listings/listing/", {"action": "approve_product", "_selected_action": [listing_id]}, follow=True)
+        Listing.objects.get(pk=listing_id).refresh_from_db()
+        self.assertEqual(Listing.objects.get(pk=listing_id).status, "active")
+        card = Browser().get("/api/listings/").json()["results"][0]
+        self.assertEqual((card["crop"], card["product_name"]), ("Other", "Butternuts"))
+
+    def test_staff_decline_sends_it_back_as_a_draft(self):
+        listing_id = self.sell().json()["id"]
+        c = Client()
+        c.force_login(self.staff)
+        c.post("/admin/listings/listing/", {"action": "decline_product", "_selected_action": [listing_id]}, follow=True)
+        self.assertEqual(Listing.objects.get(pk=listing_id).status, "draft")
+
+    def test_an_order_remembers_the_name_too(self):
+        from orders.models import Order
+        listing_id = self.sell().json()["id"]
+        Listing.objects.filter(pk=listing_id).update(status="active")
+        l = Listing.objects.get(pk=listing_id)
+        b = Browser(self.buyer)
+        r = b.c.post(f"/api/listings/{l.id}/offers/", json.dumps({"quantity": 2, "delivery": "pickup"}),
+                     content_type="application/json", HTTP_X_CSRFTOKEN=b.c.cookies["csrftoken"].value)
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["product_name"], "Butternuts")
+        self.assertEqual(Order.objects.get().other_product, "Butternuts")
+
+    def test_a_normal_product_never_carries_a_typed_name(self):
+        r = self.sell(crop="Tomatoes", other_product="Sneaky")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(Listing.objects.get(pk=r.json()["id"]).other_product, "")
+        self.assertEqual(r.json()["status"], "active")           # straight on the market
+
+    def test_a_draft_may_wait_but_publishing_needs_the_name(self):
+        r = self.sell(status="draft", other_product=None)
+        self.assertEqual(r.status_code, 201, r.content)
+        draft = Listing.objects.get(pk=r.json()["id"])
+        out = Browser(self.farmer).post(f"/api/listings/{draft.id}/publish/")
+        self.assertEqual(out.status_code, 400)
+        self.assertIn("other_product", out.json()["errors"])
+        draft.other_product = "Butternuts"
+        draft.save()
+        out = Browser(self.farmer).post(f"/api/listings/{draft.id}/publish/")
+        self.assertEqual(out.json()["status"], "review")          # goes to staff, not the market

@@ -20,7 +20,7 @@
     const own = l.photos.map((p) => (/^(data:|\/|https?:)/.test(p) ? p : STATIC + p));
     const list = own.length ? own : [cropPhoto(l.crop)];
     const main = `<figure class="gal-main">
-        <img id="galImg" src="${list[0]}" alt="${esc(l.crop)}, photo 1 of ${list.length}" width="960" height="600">
+        <img id="galImg" src="${list[0]}" alt="${esc(l.product_name || l.crop)}, photo 1 of ${list.length}" width="960" height="600">
         ${own.length ? "" : `<figcaption class="photo-note">Example photo. The farmer hasn't added photos yet.</figcaption>`}
         ${l.ready_in_days > 0 ? `<span class="tag tag-soon">Coming soon: ${weeksAway(l.ready_in_days)}</span>` : l.sell_today ? `<span class="tag tag-today">Must sell today</span>` : ""}
       </figure>`;
@@ -120,15 +120,15 @@
 
   // ---------- The whole page ----------
   function render(l) {
-    document.title = `${l.crop}, ${l.variety}: ${usd(l.price_usd)} per ${unitLabel(l.unit, 1)} | Murimi Market`;
-    const shareText = encodeURIComponent(`${l.crop} (${l.variety}) for sale on Murimi Market: ${usd(l.price_usd)} per ${unitLabel(l.unit, 1)}, ${l.district}. ${location.href}`);
+    document.title = `${l.product_name || l.crop}, ${l.variety}: ${usd(l.price_usd)} per ${unitLabel(l.unit, 1)} | Murimi Market`;
+    const shareText = encodeURIComponent(`${l.product_name || l.crop} (${l.variety}) for sale on Murimi Market: ${usd(l.price_usd)} per ${unitLabel(l.unit, 1)}, ${l.district}. ${location.href}`);
     $("#lpBody").innerHTML = `
       <div class="lp-grid">
         <div class="lp-gallery">${galleryHTML(l)}</div>
 
         <div class="lp-info">
           <p class="lp-place">${esc(l.district)}, ${esc(l.province)}</p>
-          <h1>${esc(l.crop)} <span class="variety">${esc(l.variety)}</span></h1>
+          <h1>${esc(l.product_name || l.crop)} <span class="variety">${esc(l.variety)}</span></h1>
           <p class="lp-price"><span class="price-n">${usd(l.price_usd)}</span> <span class="price-u">per ${unitLabel(l.unit, 1)}</span>${l.price_zig ? ` <span class="price-zig">or ZiG ${Number(l.price_zig).toLocaleString("en-GB")}</span>` : ""}</p>
           ${fairHTML(l)}
           ${l.description ? `<div class="lp-desc"><h2>From the farmer</h2><p>${esc(l.description)}</p></div>` : ""}

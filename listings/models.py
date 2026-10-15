@@ -31,12 +31,17 @@ class ListingQuerySet(models.QuerySet):
 
 
 class Listing(models.Model):
-    DRAFT, ACTIVE, SOLD_OUT, HIDDEN = "draft", "active", "sold_out", "hidden"
-    STATUS_CHOICES = [(DRAFT, "Draft (only the farmer sees it)"), (ACTIVE, "On the market"),
-                      (SOLD_OUT, "Sold out"), (HIDDEN, "Hidden by staff")]
+    DRAFT, REVIEW, ACTIVE, SOLD_OUT, HIDDEN = "draft", "review", "active", "sold_out", "hidden"
+    STATUS_CHOICES = [(DRAFT, "Draft (only the farmer sees it)"),
+                      (REVIEW, "Waiting for staff to check a new product"),
+                      (ACTIVE, "On the market"), (SOLD_OUT, "Sold out"), (HIDDEN, "Hidden by staff")]
 
     farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="listings")
     crop = models.CharField("Product", max_length=20, choices=PRODUCT_CHOICES)
+    other_product = models.CharField(
+        "What is it?", max_length=40, blank=True,
+        help_text='Only when the product is "Other": what the farmer typed, e.g. "Butternuts". '
+                  "Staff check it before the listing goes on the market.")
     variety = models.CharField("Variety or grade", max_length=60, blank=True)
     quantity = models.PositiveIntegerField()
     quantity_left = models.PositiveIntegerField()
@@ -67,6 +72,11 @@ class Listing(models.Model):
             models.CheckConstraint(condition=Q(quantity_left__lte=F("quantity")), name="listing_left_not_more_than_quantity"),
             models.CheckConstraint(condition=Q(price_usd__gt=0) | Q(status="draft"), name="listing_price_positive_unless_draft"),
         ]
+
+    @property
+    def product_name(self):
+        """What to call it on screen: the typed name for "Other", otherwise the product."""
+        return self.other_product or self.crop
 
     def __str__(self):
         return f"#{self.pk} {self.crop} {self.variety} ({self.quantity_left}/{self.quantity} {self.unit})"

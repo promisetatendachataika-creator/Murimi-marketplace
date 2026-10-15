@@ -223,6 +223,9 @@
         <legend>What are you selling?</legend>
         <div class="grid-2">
           <label class="field"><span>Product</span><select name="crop" id="sellCrop" required></select></label>
+          <label class="field" id="otherField" hidden><span>What is it?</span>
+            <input name="other_product" id="sellOther" maxlength="40" placeholder="e.g. Butternuts">
+            <small class="hint">Murimi staff check any new product before it goes on the market. Usually within a day.</small></label>
           <label class="field"><span>Variety or grade</span><input name="variety" maxlength="60" placeholder="e.g. Roma, grade A"></label>
           <label class="field"><span>Quantity</span><input name="quantity" type="number" min="1" step="1" inputmode="numeric" required></label>
           <label class="field"><span>Unit</span><select name="unit" id="sellUnit" required></select></label>

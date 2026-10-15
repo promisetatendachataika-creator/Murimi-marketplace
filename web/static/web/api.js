@@ -95,8 +95,8 @@ window.MarketAPI = (function () {
      again. The server checks everything again (never trust the browser). */
   async function sendListing(url, data) {
     const form = new FormData();
-    ["crop", "variety", "quantity", "unit", "price", "price_zig", "available", "harvested_on", "province",
-      "district", "delivery", "description", "status"].forEach((k) => { if (data[k] != null && data[k] !== "") form.append(k, data[k]); });
+    ["crop", "other_product", "variety", "quantity", "unit", "price", "price_zig", "available", "harvested_on",
+      "province", "district", "delivery", "description", "status"].forEach((k) => { if (data[k] != null && data[k] !== "") form.append(k, data[k]); });
     if (data.sell_today) form.append("sell_today", "1");
     (data.photos || []).forEach((dataUrl, i) => form.append("photos", dataUrlToBlob(dataUrl), `photo-${i + 1}.jpg`));
     (data.remove_photos || []).forEach((id) => form.append("remove_photos", id));

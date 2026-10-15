@@ -82,6 +82,7 @@
   const isoDay = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
   /* "20 bags of 50 kg of maize", but "10 trays of 30 eggs" and "40 broilers" (no repeated words). */
+  // `crop` here may be the name a farmer typed for an "Other" product.
   function amountOf(qty, unit, crop) {
     if (crop === "Eggs" && unit === "tray_30") return `${qty} ${unitLabel(unit, qty)}`;
     if (crop === "Broilers" && unit === "bird") return `${qty} broiler${qty === 1 ? "" : "s"}`;
@@ -260,9 +261,9 @@
         ${l.ready_in_days > 0 ? `<span class="tag tag-soon">Coming soon: ${weeksAway(l.ready_in_days)}</span>` : ""}
       </a>
       <div class="card-body">
-        <h3 id="l${l.id}"><a class="card-link" href="/listing/${l.id}/">${esc(l.crop)} <span class="variety">${esc(l.variety)}</span></a></h3>
+        <h3 id="l${l.id}"><a class="card-link" href="/listing/${l.id}/">${esc(l.product_name || l.crop)} <span class="variety">${esc(l.variety)}</span></a></h3>
         <p class="place">${esc(l.district)}, ${esc(l.province)}
-          <a class="share-link" href="https://wa.me/?text=${encodeURIComponent(`${l.crop} for sale on Murimi Market: ${usd(l.price_usd)} per ${unitLabel(l.unit, 1)}, ${l.district}. ${location.origin}/listing/${l.id}/`)}" target="_blank" rel="noopener" aria-label="Share ${esc(l.crop)} on WhatsApp">Share</a></p>
+          <a class="share-link" href="https://wa.me/?text=${encodeURIComponent(`${l.product_name || l.crop} for sale on Murimi Market: ${usd(l.price_usd)} per ${unitLabel(l.unit, 1)}, ${l.district}. ${location.origin}/listing/${l.id}/`)}" target="_blank" rel="noopener" aria-label="Share ${esc(l.crop)} on WhatsApp">Share</a></p>
         <p class="price"><span class="price-n">${usd(l.price_usd)}</span> <span class="price-u">per ${esc(unitLabel(l.unit, 1))}</span>${l.price_zig ? ` <span class="price-zig">or ZiG ${Number(l.price_zig).toLocaleString("en-GB")}</span>` : ""}</p>
         ${meterHTML(l.market)}
         <dl class="facts">
@@ -346,7 +347,7 @@
     if (!offering) return;
     const l = offering;
     $("#offerSummary").innerHTML = `${pictureHTML(l, "sm")}
-      <div><strong>${esc(l.crop)}, ${esc(l.variety)}</strong><br><span>${usd(l.price_usd)} per ${esc(unitLabel(l.unit, 1))} from ${esc(l.farmer.name)}</span></div>`;
+      <div><strong>${esc(l.product_name || l.crop)}, ${esc(l.variety)}</strong><br><span>${usd(l.price_usd)} per ${esc(unitLabel(l.unit, 1))} from ${esc(l.farmer.name)}</span></div>`;
     const q = $("#offerQty");
     q.max = l.quantity_left; q.value = Math.min(10, l.quantity_left);
     $("#offerUnit").textContent = unitLabel(l.unit, 2);
@@ -412,6 +413,14 @@
     box.innerHTML = meterHTML(m);
   }
   // Only offer units that fit the product: birds for broilers, trays for eggs.
+  // "Other" needs the farmer to say what it is; staff check it before it is listed.
+  function updateSellOther() {
+    const other = $("#sellCrop").value === "Other";
+    $("#otherField").hidden = !other;
+    $("#sellOther").required = other;
+    if (!other) $("#sellOther").value = "";
+  }
+
   function updateSellUnits() {
     const product = $("#sellCrop").value;
     const allowed = META.product_units[product] || META.product_units._crops;
@@ -508,7 +517,7 @@
 
   ["change", "input"].forEach((ev) => $("#sellForm").addEventListener(ev, (e) => {
     $("#sellError").textContent = "";          // an old error goes away once the farmer starts fixing things
-    if (e.target.name === "crop") { updateSellUnits(); updateSellWhen(); }
+    if (e.target.name === "crop") { updateSellUnits(); updateSellWhen(); updateSellOther(); }
     if (e.target.name === "when") updateSellWhen();
     if (["crop", "unit", "price"].includes(e.target.name)) updateSellCheck();
     if (e.target.name === "price") warnAboutWaitingOffers();
@@ -528,7 +537,7 @@
     const f = $("#sellForm");
     f.reset(); photos = []; keptPhotos = []; droppedPhotos = []; drawPhotos();
     $("#descCount").textContent = "0";
-    $("#sellCrop").value = "Tomatoes"; updateSellUnits(); $("#sellUnit").value = "crate";
+    $("#sellCrop").value = "Tomatoes"; updateSellUnits(); updateSellOther(); $("#sellUnit").value = "crate";
     $("#sellHarvest").value = "";
     editing = null;
     $("#sellTitle").textContent = "List your produce";
@@ -555,6 +564,7 @@
     editing = l;
     const f = $("#sellForm");
     f.crop.value = l.crop; updateSellUnits(); f.unit.value = l.unit;
+    f.other_product.value = l.other_product || ""; updateSellOther();
     f.variety.value = l.variety || "";
     f.quantity.value = l.quantity;
     f.price.value = l.price_usd;
@@ -645,7 +655,9 @@
       return;
     }
     if (draft) { toast("Saved as a draft. Find it in My account, under My listings."); return; }
-    toast(l.ready_in_days > 0
+    toast(l.status === "review"
+      ? `Thank you. ${l.product_name} is a new product for us, so Murimi staff will check it before it goes on the market. You'll find it in My account.`
+      : l.ready_in_days > 0
       ? `Listed as coming soon (${weeksAway(l.ready_in_days)}, ready ${shortDate(l.available_from)}). Buyers can reserve it now.`
       : "Your listing is on the market. Buyers can send offers now.");
     loadListings();

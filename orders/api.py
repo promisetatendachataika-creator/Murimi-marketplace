@@ -40,7 +40,8 @@ def order_json(o, me):
     rating = lambda r: {"stars": r.stars, "comment": r.comment} if r else None  # noqa: E731
     return {
         "id": o.id, "listing_id": o.listing_id, "request_id": o.request_id,
-        "crop": o.crop, "variety": o.variety, "unit": o.unit, "price_usd": float(o.price_usd),
+        "crop": o.crop, "product_name": o.product_name, "variety": o.variety,
+        "unit": o.unit, "price_usd": float(o.price_usd),
         "quantity": o.quantity, "total_usd": float(o.total_usd), "delivery": o.delivery, "message": o.message,
         "status": o.status, "created_at": _day(o.created_at), "accepted_at": _day(o.accepted_at),
         "completed_at": _day(o.completed_at), "ready_on": o.ready_on.isoformat() if o.ready_on else None,
@@ -104,7 +105,8 @@ def send_offer(request, listing_id):
         return json_error("You already have an offer waiting on this listing. Cancel it in My account to send a new one.", status=409)
 
     o = Order.objects.create(listing=l, proposed_by=Order.BY_BUYER, farmer=l.farmer, buyer=me,
-                             crop=l.crop, variety=l.variety, unit=l.unit, price_usd=l.price_usd,
+                             crop=l.crop, other_product=l.other_product, variety=l.variety,
+                             unit=l.unit, price_usd=l.price_usd,
                              quantity=qty, delivery=delivery, message=message,
                              ready_on=l.available_from if l.ready_in_days > 0 else None)
     return JsonResponse(order_json(o, me), status=201)

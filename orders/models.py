@@ -37,6 +37,7 @@ class Order(models.Model):
     farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders_as_farmer")
     buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders_as_buyer")
     crop = models.CharField("Product", max_length=20, choices=PRODUCT_CHOICES)
+    other_product = models.CharField(max_length=40, blank=True)   # copied from the listing, for "Other"
     variety = models.CharField(max_length=60, blank=True)
     unit = models.CharField(max_length=12, choices=UNIT_CHOICES)
     price_usd = models.DecimalField("Price per unit (US$)", max_digits=10, decimal_places=2)
@@ -65,6 +66,10 @@ class Order(models.Model):
 
     def __str__(self):
         return f"#{self.pk} {self.quantity} {self.unit} {self.crop}: {self.buyer.name} / {self.farmer.name} ({self.status})"
+
+    @property
+    def product_name(self):
+        return self.other_product or self.crop
 
     @property
     def total_usd(self):

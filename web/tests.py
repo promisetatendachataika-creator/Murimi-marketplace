@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.test import TestCase
 
 
@@ -159,3 +160,22 @@ class LegalPageTests(TestCase):
             html = self.client.get(url).content.decode()
             self.assertNotIn('href="https://wa.me/263782573320"', html, f"{url}: opens an empty chat")
             self.assertIn("wa.me/263782573320?text=", html, url)
+
+
+class SellFormSendsEverythingTests(TestCase):
+    """The page must send every field the Sell form collects.
+
+    Added after `other_product` was missing from that list: the server tests passed,
+    because they post straight to the API, but nothing a farmer typed ever arrived.
+    """
+
+    def test_every_named_input_is_in_the_list_api_js_sends(self):
+        import re
+        html = self.client.get("/").content.decode()
+        form = html[html.index('id="sellForm"'):html.index('id="requestForm"')]
+        on_the_form = {n for n in re.findall(r'name="([a-z_]+)"', form)}
+        api_js = (settings.BASE_DIR / "web" / "static" / "web" / "api.js").read_text()
+        sent = set(re.findall(r'"([a-z_]+)"', api_js[api_js.index("function sendListing"):][:700]))
+        # `when` only picks which date box to show, and photos are handled separately.
+        missing = on_the_form - sent - {"when", "photos", "sell_today", "status"}
+        self.assertEqual(missing, set(), f"the Sell form collects these but api.js never sends them: {missing}")

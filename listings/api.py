@@ -12,6 +12,7 @@ POST /api/listings/<id>/publish/   owner only: draft -> on the market
 POST /api/listings/<id>/report/    anyone logged in: flag a listing for staff
 GET  /api/me/listings/             my listings (drafts and sold out too)
 """
+import re
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -59,7 +60,8 @@ _LOOK_UP = object()   # "work the market price out yourself" (a missing price is
 def listing_json(l, request, market=_LOOK_UP, records=None):
     photos = photo_urls(l, request)
     return {
-        "id": l.id, "status": l.status, "crop": l.crop, "variety": l.variety,
+        "id": l.id, "status": l.status, "crop": l.crop, "product_name": l.product_name,
+        "other_product": l.other_product, "variety": l.variety,
         "quantity": l.quantity, "quantity_left": l.quantity_left, "unit": l.unit,
         "price_usd": float(l.price_usd), "price_zig": float(l.price_zig) if l.price_zig is not None else None,
         "province": l.province, "district": l.district,
@@ -198,6 +200,21 @@ def _read_listing_form(data, files, draft, existing=None):
     if len(variety) > 60:
         errors["variety"] = "Use 60 characters or fewer."
 
+    # "Other" means the farmer types what it is, and staff check it before it goes on the market.
+    other_product = (data.get("other_product") or "").strip()
+    if crop == "Other":
+        if not other_product and not draft:
+            errors["other_product"] = "Tell us what you're selling, for example \"Butternuts\"."
+        elif other_product:
+            if len(other_product) > 40:
+                errors["other_product"] = "Use 40 characters or fewer."
+            elif not re.fullmatch(r"[A-Za-z][A-Za-z0-9 '\-/()]*", other_product):
+                errors["other_product"] = "Use letters, numbers and spaces only."
+            elif other_product.lower() in {p.lower() for p in PRODUCTS}:
+                errors["other_product"] = f"{other_product} is already in the list. Choose it there instead."
+    else:
+        other_product = ""                            # a real product never carries a typed name
+
     available = parse_date(data.get("available") or "") or (existing.available_from if existing else today)
     if existing and available == existing.available_from:
         pass                                          # unchanged: a date that has already passed is fine
@@ -237,7 +254,8 @@ def _read_listing_form(data, files, draft, existing=None):
             if not value and field not in errors:
                 errors[field] = message
 
-    out.update(crop=crop, unit=unit or units_for(crop)[0], quantity=qty or 0, price_usd=price or Decimal("0"),
+    out.update(crop=crop, other_product=other_product, unit=unit or units_for(crop)[0],
+               quantity=qty or 0, price_usd=price or Decimal("0"),
                price_zig=zig, province=province, district=district, delivery=delivery, description=description,
                variety=variety, available_from=available, harvested_on=harvested, sell_today=sell_today)
     return out, errors, photos
@@ -282,7 +300,9 @@ def listings(request):
         return json_error("Please check the form.", errors=errors)
 
     with transaction.atomic():                         # the listing and its photos are saved together, or not at all
-        listing = Listing.objects.create(farmer=request.user, status=Listing.DRAFT if draft else Listing.ACTIVE,
+        # A product not on our list waits for staff; everything else goes straight on the market.
+        status = Listing.DRAFT if draft else (Listing.REVIEW if cleaned["other_product"] else Listing.ACTIVE)
+        listing = Listing.objects.create(farmer=request.user, status=status,
                                          quantity_left=cleaned["quantity"], **cleaned)
         for i, f in enumerate(cleaned_photos):
             ListingPhoto.objects.create(listing=listing, image=f, position=i)
@@ -294,7 +314,7 @@ def listing_detail(request, listing_id):
     l = Listing.objects.select_related("farmer").prefetch_related("photos").filter(pk=listing_id).first()
     mine = bool(l and request.user.is_authenticated and l.farmer_id == request.user.id)
     staff = request.user.is_authenticated and request.user.is_staff
-    if not l or (l.status in (Listing.DRAFT, Listing.HIDDEN) and not (mine or staff)):
+    if not l or (l.status in (Listing.DRAFT, Listing.REVIEW, Listing.HIDDEN) and not (mine or staff)):
         return json_error("This listing doesn't exist or was removed.", status=404)
     if l.status == Listing.ACTIVE and l.ready_in_days > READY_WINDOW_DAYS and not mine:
         return json_error("This listing isn't open yet.", status=404)
@@ -376,6 +396,8 @@ def edit_listing(request, listing_id):
             l.status = Listing.ACTIVE                 # more stock arrived: back on the market
         elif l.status == Listing.ACTIVE and l.quantity_left < 1:
             l.status = Listing.SOLD_OUT
+        elif l.status == Listing.ACTIVE and l.other_product:
+            l.status = Listing.REVIEW                 # the product was changed to one we don't list yet
         l.save()
         if drop:
             l.photos.filter(pk__in=drop).delete()
@@ -409,13 +431,15 @@ def publish(request, listing_id):
         return err
     if l.status != Listing.DRAFT:
         return json_error("Only drafts can be published.", status=409)
-    missing = {k: v for k, v in {"quantity": l.quantity, "price": l.price_usd, "province": l.province,
-                                 "district": l.district}.items() if not v}
+    needed = {"quantity": l.quantity, "price": l.price_usd, "province": l.province, "district": l.district}
+    if l.crop == "Other":
+        needed["other_product"] = l.other_product
+    missing = {k: v for k, v in needed.items() if not v}
     if missing:
         return json_error("Finish the listing before publishing.", errors={k: "Missing." for k in missing})
     if l.available_from < timezone.localdate():
         l.available_from = timezone.localdate()
-    l.status = Listing.ACTIVE
+    l.status = Listing.REVIEW if l.other_product else Listing.ACTIVE
     l.quantity_left = l.quantity
     l.save()
     return JsonResponse({"id": l.id, "status": l.status})
