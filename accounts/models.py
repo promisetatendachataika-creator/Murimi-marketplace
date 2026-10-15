@@ -106,6 +106,9 @@ class User(AbstractBaseUser, PermissionsMixin):
             "id": self.id, "name": self.name, "phone": self.phone,
             "username": self.username or "", "email": self.email or "", "role": self.role,
             "is_verified_farmer": self.is_verified_farmer, "is_staff": self.is_staff,
+            # What this account may DO. The pages hide buttons for anything that is False,
+            # so nobody fills in a form only to be refused. The server checks again anyway.
+            "can_sell": self.can_sell, "can_buy": self.can_buy,
         }
 
 

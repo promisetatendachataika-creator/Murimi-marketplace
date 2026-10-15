@@ -252,3 +252,25 @@ class SecurityTests(TestCase):
         self.assertEqual(client_ip(req), "10.0.0.1")
         with override_settings(BEHIND_PROXY=True):
             self.assertEqual(client_ip(req), "9.9.9.9")                   # the entry the proxy added, not the faked one
+
+
+class WhatAnAccountCanDoTests(TestCase):
+    """/api/auth/me/ says what the account may do, so the pages can hide the rest."""
+
+    def can(self, **kw):
+        user = User.objects.create_user("+263771110001", "pw-123456", name="Someone", **kw)
+        c = Client()
+        c.force_login(user)
+        body = c.get("/api/auth/me/").json()["user"]
+        return body["can_sell"], body["can_buy"]
+
+    def test_each_role_and_staff(self):
+        for role, expected in [("farmer", (True, False)), ("buyer", (False, True)), ("both", (True, True))]:
+            with self.subTest(role=role):
+                self.assertEqual(self.can(role=role), expected)
+                User.objects.all().delete()
+        # Staff have no role: they run the back office, they don't trade.
+        self.assertEqual(self.can(role="", is_staff=True), (False, False))
+
+    def test_logged_out_has_no_user(self):
+        self.assertIsNone(Client().get("/api/auth/me/").json()["user"])

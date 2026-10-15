@@ -341,8 +341,8 @@
   // ---------- Start ----------
   let ME = null;
   async function refresh() {
-    const isFarmer = ME.role === "farmer" || ME.role === "both";
-    const isBuyer = ME.role === "buyer" || ME.role === "both";
+    const isFarmer = ME.can_sell;
+    const isBuyer = ME.can_buy;
     const [farmerWaiting, [buyerWaiting, open]] = await Promise.all([
       isFarmer ? loadOffers() : 0, isBuyer ? loadOrders() : [0, 0],
       isFarmer ? loadListings() : null, isBuyer ? loadMyRequests() : null]);
@@ -357,14 +357,28 @@
     const { user } = await MarketAPI.me();
     if (!user) { location.replace("/login/?next=/account/"); return; }
     ME = user;
-    const roleWords = { farmer: "Farmer", buyer: "Buyer", both: "Farmer and buyer" }[user.role] || "";
+    const roleWords = Murimi.roleWords(user);
     $("#hello").innerHTML = `Hello, ${esc(user.name.split(" ")[0])}${roleWords ? ` <span class="role-badge">${esc(roleWords)}</span>` : ""}`;
-    $("#whoLine").innerHTML = `${roleWords ? `You're logged in as a ${esc(roleWords.toLowerCase())}. ` : ""}WhatsApp <span class="phone">${esc(prettyPhone(user.phone))}</span>${user.username ? `, username <span class="phone">${esc(user.username)}</span>` : ""}.`;
+    $("#whoLine").innerHTML = `${roleWords ? `${esc(Murimi.roleSentence(roleWords))} ` : ""}WhatsApp <span class="phone">${esc(prettyPhone(user.phone))}</span>${user.username ? `, username <span class="phone">${esc(user.username)}</span>` : ""}.`;
 
     // Show only the tabs that fit: farmers see offers and listings, buyers see orders.
-    const isFarmer = user.role === "farmer" || user.role === "both";
-    const isBuyer = user.role === "buyer" || user.role === "both";
+    const isFarmer = user.can_sell;
+    const isBuyer = user.can_buy;
     $$('[role="tab"]').forEach((t) => (t.hidden = t.dataset.for === "farmer" ? !isFarmer : !isBuyer));
+
+    // Staff neither buy nor sell, so there are no tabs to show them. Say so and point
+    // them at the back office, instead of an empty page.
+    if (!isFarmer && !isBuyer) {
+      $(".acct-tabs").hidden = true;
+      $("#summary").textContent = "";
+      $("#panel-offers").hidden = false;
+      $("#panel-offers").innerHTML = `<div class="empty-box">
+        <p><strong>This is a staff account.</strong> Staff accounts don't buy or sell, so there's nothing to show here.</p>
+        <p><a href="/admin/">Open the back office</a> to handle reports, prices and accounts.</p></div>`;
+      $("#main").removeAttribute("aria-busy");
+      return;
+    }
+
     let first = tabs()[0];
     try { const saved = $("#" + sessionStorage.getItem("murimi-acct-tab")); if (saved && !saved.hidden) first = saved; } catch (e) { /* fine */ }
     selectTab(first);

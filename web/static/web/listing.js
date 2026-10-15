@@ -61,6 +61,14 @@
     const soon = l.ready_in_days > 0;
     if (l.sold_out) return `<div class="offer-box" id="offer"><h2>Sold out</h2><p>This farmer has no more to sell right now.</p><a class="btn btn-outline btn-block" href="/#browse">See other produce</a></div>`;
     if (l.is_mine) return `<div class="offer-box" id="offer"><h2>This is your listing</h2><p>Offers from buyers appear in My account.</p><a class="btn btn-green btn-block" href="/account/">Open My account</a></div>`;
+    // An account that can't buy gets no form to fill in, and is told why.
+    if (ME && !ME.can_buy) {
+      return `<div class="offer-box" id="offer"><h2>${ME.can_sell ? "Your account is for selling" : "Staff account"}</h2>
+        <p>${ME.can_sell
+          ? "Buying needs a buyer account. WhatsApp us on +263 78 257 3320 and we'll change it for you."
+          : "Staff accounts don't buy or sell. Log in with a farmer or buyer account to send an offer."}</p>
+        <a class="btn btn-outline btn-block" href="/#browse">See other produce</a></div>`;
+    }
     const opts = l.delivery === "both" ? ["pickup", "delivery"] : [l.delivery];
     return `<form class="offer-box" id="offer" novalidate>
       <h2>${soon ? "Reserve before it's ready" : "Make an offer"}</h2>
@@ -140,7 +148,7 @@
     `;
 
     // Phone bar
-    if (!l.sold_out && !l.is_mine) {
+    if (!l.sold_out && !l.is_mine && !(ME && !ME.can_buy)) {
       $("#barPrice").textContent = usd(l.price_usd);
       $("#barUnit").textContent = "per " + unitLabel(l.unit, 1);
       $("#barBtn").textContent = l.ready_in_days > 0 ? "Reserve" : "Make an offer";
@@ -227,7 +235,7 @@
       const role = Murimi.roleWords(ME);
       $("#whoRole").textContent = role;
       $("#whoRole").hidden = !role;
-      $("#whoRole").title = role ? `You're logged in as a ${role.toLowerCase()}. Open My account` : "";
+      $("#whoRole").title = role ? `${Murimi.roleSentence(role)} Open My account` : "";
     }
     const res = await MarketAPI.getListing(ID);
     $("#main").removeAttribute("aria-busy");

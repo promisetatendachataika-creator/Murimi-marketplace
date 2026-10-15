@@ -135,6 +135,7 @@
             <p class="section-lede">Supermarkets, schools and traders post what they need. Too big for one farm? Several farmers can each supply part of it.</p>
           </div>
           <button class="btn btn-green" type="button" id="postRequestBtn">Post what you need</button>
+          <p class="staff-note" id="staffNote" hidden>You're logged in as staff. Staff accounts don't buy or sell, so those buttons are hidden. Use the <a href="/admin/">back office</a>, or log in with a farmer or buyer account.</p>
         </div>
         <div class="request-list" id="requestList"></div>
       </div>
@@ -368,6 +369,7 @@
 
   <!-- Order matters: data first, then the "waiter" that fetches it, then the page logic. -->
   <script src="{% asset 'web/api.js' %}" defer></script>
+  <script src="{% asset 'web/common.js' %}" defer></script>
   <script src="{% asset 'web/app.js' %}" defer></script>
 </body>
 </html>

@@ -236,4 +236,14 @@ Checked every endpoint for log-in, ownership, CSRF and limits; fixed what the re
   - `DJANGO_CACHE_TABLE` moves the rate-limit counts into a shared database table, so several server processes share one count instead of one each.
 - Still to do before real farmers use it: **photo storage** (uploads are wiped on every deploy; Cloudflare R2 is free up to 10 GB), `gunicorn` in requirements, change the staff password, error reporting.
 
+## Buttons you can't use are now hidden (15 Oct 2026)
+- Found by Promise: logged in as **staff**, the Sell form opened and only refused *after* the whole form was filled in ("Only farmer accounts can list produce"). The pages were deciding by guessing from the role word, and a staff account (which has no role) slipped through.
+- Fixed at the root: `/api/auth/me/` now sends **`can_sell`** and **`can_buy`**, worked out by the server in one place (`accounts/models.py`). The pages no longer work the rules out for themselves, so they can't get them wrong.
+- Every button for something an account can't do is now **hidden**, rather than refusing afterwards: Sell produce, Post what you need, Make an offer, Offer to supply, and the offer form on the listing page.
+- **Logged-out visitors still see every button** - it takes them to log in, which is the point.
+- Staff get a short line saying why the buttons aren't there, and My account points them at the back office instead of showing an empty page.
+- The server still checks everything itself. Hiding a button is a courtesy, not the lock.
+- `common.js` is now loaded on every page, so the words for each kind of account live in one place.
+- Tests: 124.
+
 **Next:** photo storage (Cloudflare R2) when you're ready to put it online, or whatever you want built next.

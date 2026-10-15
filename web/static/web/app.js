@@ -326,6 +326,7 @@
     }
     const html = data.results.map(cardHTML).join("");
     if (more) grid.insertAdjacentHTML("beforeend", html); else grid.innerHTML = html;
+    showWhatYouCanDo();          // hide "Make an offer" if this account can't buy
     page = data.page;
     moreBtn.hidden = !data.next;
     moreBtn.disabled = false;
@@ -513,11 +514,12 @@
     if (e.target.name === "price") warnAboutWaitingOffers();
   }));
 
-  // Selling needs an account: logged-out farmers go to log in first, then come back here.
+  // The yellow top button. For a buyer it says "Post what you need" and opens that form instead.
   async function openSell() {
     const { user } = MarketAPI.me ? await MarketAPI.me() : { user: null };
-    if (!user) { location.href = "/login/?next=" + encodeURIComponent("/#sell"); return; }
-    if (user.role === "buyer") { openRequest(); return; }        // buyers: this button is "Post what you need"
+    ME = user;
+    if (user && !user.can_sell && user.can_buy) { openRequest(); return; }
+    if (!(await needAccount("farmer", "/#sell"))) return;
     $("#sellDialog").showModal();
   }
   $("#sellBtn").addEventListener("click", openSell);
@@ -685,14 +687,21 @@
       </article>`;
     }).join("");
     $$("[data-supply]").forEach((b) => b.addEventListener("click", () => openSupply(Number(b.dataset.supply))));
+    showWhatYouCanDo();          // hide "Offer to supply" if this account can't sell
   }
 
-  // Both forms need the right kind of account; logged-out people log in first and come back.
+  /* The last gate before a form opens. Logged-out people log in first and come back.
+     The buttons are already hidden for anything an account can't do, so this only catches
+     the odd case: a direct link, or a role changed in another tab. */
+  const CANT = {
+    buyer: "Your account is for selling. Posting requests and sending offers need a buyer account; WhatsApp us on +263 78 257 3320 to change it.",
+    farmer: "Your account is for buying. Selling and supplying need a farmer account; WhatsApp us on +263 78 257 3320 to change it.",
+  };
   async function needAccount(kind, backTo) {
     const { user } = MarketAPI.me ? await MarketAPI.me() : { user: null };
+    ME = user;
     if (!user) { location.href = "/login/?next=" + encodeURIComponent(backTo); return null; }
-    if (kind === "buyer" && user.role === "farmer") { toast("Your account is for selling. Posting requests needs a buyer account; WhatsApp us to change it."); return null; }
-    if (kind === "farmer" && user.role === "buyer") { toast("Supplying needs a farmer account; WhatsApp us to change it."); return null; }
+    if (!(kind === "buyer" ? user.can_buy : user.can_sell)) { toast(CANT[kind]); showWhatYouCanDo(); return null; }
     return user;
   }
 
@@ -802,22 +811,46 @@
   if (document.fonts) document.fonts.ready.then(placeSplit);
   window.addEventListener("resize", placeSplit);
 
-  // ---------- Who is logged in ----------
+  /* ---------- Who is logged in, and what may they do ----------
+     ME is null when logged out. canSell()/canBuy() come from the SERVER (/api/auth/me/),
+     so the page never has to work the rules out for itself and can't get them wrong.
+     Logged out, both are true: a visitor sees every button, and the button sends them
+     to log in. Someone logged in only sees what their account can actually use. */
+  let ME = null;
+  const canSell = () => !ME || ME.can_sell;
+  const canBuy = () => !ME || ME.can_buy;
+
   async function showWho() {
     if (!MarketAPI.me) return;            // older api.js: no accounts yet
     const { user } = await MarketAPI.me();
+    ME = user;
     $("#loginLink").hidden = !!user;
     $("#whoBox").hidden = !user;
-    const role = { farmer: "Farmer", buyer: "Buyer", both: "Farmer and buyer" }[user && user.role] || "";
+    const role = Murimi.roleWords(user);
     // Phones get the short form ("Farmer+buyer") so the top bar still fits.
     $("#whoRole").innerHTML = role === "Farmer and buyer"
       ? `<span class="lbl-long">Farmer and buyer</span><span class="lbl-short">Farmer+buyer</span>` : role;
     $("#whoRole").hidden = !role;
-    $("#whoRole").title = role ? `You're logged in as a ${role.toLowerCase()}. Open My account` : "";
+    $("#whoRole").title = role ? `${Murimi.roleSentence(role)} Open My account` : "";
     if (user) { $("#whoName").textContent = "My account"; $("#whoName").title = `Logged in as ${user.name} (${role})`; }
-    // A buyer can't sell, so the yellow button becomes what buyers do instead.
-    $("#sellBtn").innerHTML = user && user.role === "buyer"
-      ? `<span class="lbl-long">Post what you need</span><span class="lbl-short">Post a need</span>` : "Sell produce";
+    // The yellow button offers what this account can actually do. Staff can neither
+    // sell nor buy, so they get no button rather than a refusal after filling the form.
+    const sellBtn = $("#sellBtn");
+    sellBtn.hidden = !canSell() && !canBuy();
+    sellBtn.innerHTML = canSell()
+      ? "Sell produce"
+      : `<span class="lbl-long">Post what you need</span><span class="lbl-short">Post a need</span>`;
+    showWhatYouCanDo();
+  }
+
+  /* Hides every button for something this account can't do. Called after we learn who is
+     logged in, and again each time a list is redrawn. */
+  function showWhatYouCanDo() {
+    $("#postRequestBtn").hidden = !canBuy();
+    $$("[data-offer]").forEach((b) => (b.hidden = !canBuy()));
+    $$("[data-supply]").forEach((b) => (b.hidden = !canSell()));
+    const note = $("#staffNote");
+    if (note) note.hidden = !(ME && !ME.can_sell && !ME.can_buy);
   }
   $("#logoutBtn").addEventListener("click", async () => {
     await MarketAPI.logout();

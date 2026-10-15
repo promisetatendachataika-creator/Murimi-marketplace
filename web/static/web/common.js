@@ -1,6 +1,5 @@
 /*
- * common.js - small helpers shared by the pages (listing page first; app.js and
- * account.js will move onto these too). Loaded before the page's own script.
+ * common.js - small helpers shared by every page. Loaded before the page's own script.
  *   Murimi.esc("<b>")        -> "&lt;b&gt;"   (makes text safe to put in HTML)
  *   Murimi.usd(6.5)          -> "US$6.50"
  *   Murimi.unitLabel("crate", 3) -> "crates"
@@ -74,7 +73,9 @@ window.Murimi = (function () {
 
   // Which kind of account is logged in, in plain words.
   const ROLE_WORDS = { farmer: "Farmer", buyer: "Buyer", both: "Farmer and buyer" };
-  const roleWords = (user) => (user && ROLE_WORDS[user.role]) || "";
+  const roleWords = (user) => (user ? ROLE_WORDS[user.role] || (user.is_staff ? "Staff" : "") : "");
+  // "as a farmer", but "as staff" - no "a".
+  const roleSentence = (words) => (words === "Staff" ? "You're logged in as staff." : `You're logged in as a ${words.toLowerCase()}.`);
 
-  return { roleWords, $, $$, STATIC, cropPhoto, unitLabel, usd, esc, shortDate, monthYear, daysAgo, weeksAway, ICON, stars, meterHTML, toast, themeToggle };
+  return { roleWords, roleSentence, $, $$, STATIC, cropPhoto, unitLabel, usd, esc, shortDate, monthYear, daysAgo, weeksAway, ICON, stars, meterHTML, toast, themeToggle };
 })();
