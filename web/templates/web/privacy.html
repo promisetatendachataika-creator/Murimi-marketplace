@@ -1,0 +1,172 @@
+{% load static asset_tags %}<!doctype html>
+<!--
+  Privacy Notice. Written to match what the code ACTUALLY does - if you change what
+  the site stores or shows, change this page too.
+  IMPORTANT: this is a working draft, not legal advice. Zimbabwe's Cyber and Data
+  Protection Act [Chapter 12:07] also requires a POTRAZ data controller licence and a
+  Data Protection Officer. Get a Zimbabwean lawyer to check this before going live.
+  See docs/going-live.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Notice: Murimi Market</title>
+  <link rel="icon" href="{% asset 'web/img/favicon.svg' %}" type="image/svg+xml">
+  <meta name="theme-color" content="#0f2a16">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="{% asset 'web/app.css' %}">
+  <link rel="stylesheet" href="{% asset 'web/legal.css' %}">
+  <script src="{% asset 'web/theme-init.js' %}"></script>
+</head>
+<body data-static="{% static 'web/' %}">
+  <a class="skip" href="#main">Skip to the notice</a>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Murimi Market home">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c4 4 6 8 6 13s-2 9-6 13c-4-4-6-8-6-13s2-9 6-13Z" fill="#e8b931"/><path d="M16 7v21M16 13l-3.5-2.5M16 13l3.5-2.5M16 18l-3.5-2.5M16 18l3.5-2.5M16 23l-3.5-2.5M16 23l3.5-2.5" stroke="#0f2a16" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Murimi <b>Market</b></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/#browse">Buy produce</a>
+      <a href="/#requests">Buyer requests</a>
+    </nav>
+  </header>
+
+  <main id="main" class="legal">
+    <div class="wrap legal-inner">
+      <h1>Privacy Notice</h1>
+      <p class="legal-date">Last updated 15 October 2026</p>
+
+      <p class="legal-lede">Your phone number is how people reach you, so we are careful with it.
+      This page says exactly what we keep, who can see it, and how to get it back or removed.</p>
+
+      <h2>The short version</h2>
+      <ul>
+        <li><strong>Your phone number is not public.</strong> Nobody sees it until you accept an
+        offer, or they accept yours.</li>
+        <li><strong>Your full name is not public either.</strong> Buyers see "Tendai M.", not your
+        full name. Shops and schools are shown by their business name, because that is the point of
+        a business account.</li>
+        <li><strong>We remove the location from your photos</strong> before anyone sees them.</li>
+        <li><strong>We cannot read your password.</strong> Nobody can, including us.</li>
+        <li><strong>We do not sell your details to anybody.</strong></li>
+      </ul>
+
+      <h2>Who we are</h2>
+      <p>Murimi Market, part of Murimi Intelligent Hub, in Zimbabwe. For anything on this page,
+      WhatsApp us on
+      <a href="https://wa.me/263782573320?text=Hello%20Murimi%20Market.%20I%20have%20a%20question%20about%20my%20personal%20information." target="_blank" rel="noopener">+263 78 257 3320</a>.</p>
+
+      <h2>What we keep, and why</h2>
+      <table class="legal-table">
+        <thead><tr><th>What</th><th>Why we need it</th></tr></thead>
+        <tbody>
+          <tr><td>Your name</td><td>So people know who they are dealing with</td></tr>
+          <tr><td>Your WhatsApp number</td><td>It is how you log in, and how the other side reaches you after a deal</td></tr>
+          <tr><td>Username and email, if you add them</td><td>Other ways to log in. Both are optional</td></tr>
+          <tr><td>Whether you sell, buy, or both</td><td>So we show you the right parts of the site</td></tr>
+          <tr><td>Your province and district</td><td>So buyers can find produce near them. We do not ask for your exact address</td></tr>
+          <tr><td>Your listings and photos</td><td>They are what buyers come to see</td></tr>
+          <tr><td>Offers, orders and ratings</td><td>To run the deal and show a seller's track record</td></tr>
+          <tr><td>Messages you type into an offer</td><td>So the other person can read them</td></tr>
+          <tr><td>When you log in, and the network address you used</td><td>To stop password guessing and spam</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Who can see what</h2>
+      <p><strong>Anyone visiting the site can see:</strong> your produce, price, quantity, province and
+      district, your photos, your short name ("Tendai M.") or business name, whether you are Murimi
+      Verified, and your star rating and number of completed orders.</p>
+      <p><strong>Only the person you are dealing with can see:</strong> your full name and your
+      WhatsApp number, and only once an offer has been accepted. Before that, neither side has the
+      other's number.</p>
+      <p><strong>Nobody except you can see:</strong> your password, your email address, and your
+      login history.</p>
+      <p><strong>Our staff can see</strong> your account details and your orders, so they can help
+      when something goes wrong and deal with reports. Staff cannot read your password, and cannot
+      change an agreed price or quantity on an order.</p>
+
+      <h2>Photos</h2>
+      <p>Phone cameras often record the exact GPS location where a photo was taken. When you upload a
+      photo, our server saves it again as a new image, and that removes the location and other hidden
+      camera information. The photo buyers see does not carry your farm's coordinates.</p>
+
+      <h2>Passwords</h2>
+      <p>We never store your actual password. We store a scrambled fingerprint of it that cannot be
+      turned back into the password. When you log in we scramble what you typed and compare the two.
+      This is why we can reset your password but can never tell you what it was.</p>
+
+      <h2>WhatsApp confirmation codes</h2>
+      <p>When we send you a 6-digit code, we store only a fingerprint of it, not the code itself. It
+      stops working after 10 minutes, or after 5 wrong tries.</p>
+      <p>To deliver those codes to WhatsApp we must pass your number and the message to Meta, who own
+      WhatsApp. They handle it under their own terms. While the site is still being tested, no
+      messages are sent at all.</p>
+
+      <h2>Who else we share with</h2>
+      <p>We do not sell your details, and we do not give them to advertisers.</p>
+      <p>We share only what is necessary with:</p>
+      <ul>
+        <li><strong>The person you are trading with</strong>, as described above.</li>
+        <li><strong>The company that hosts the website</strong>, which stores the data for us.</li>
+        <li><strong>Meta</strong>, to deliver WhatsApp codes, once that is switched on.</li>
+        <li><strong>The authorities</strong>, if the law requires it.</li>
+      </ul>
+
+      <h2>How long we keep it</h2>
+      <p>Your account details stay while your account is open. Listings, orders and ratings are kept
+      as the record of what happened, because both sides may need to refer back to a deal.</p>
+      <p>If you close your account, we remove your name, phone number and email. We keep the record
+      that an order happened, without your personal details attached, so the other person's own
+      history still makes sense.</p>
+
+      <h2>What you can ask for</h2>
+      <p>You can ask us to:</p>
+      <ul>
+        <li>Tell you what we hold about you</li>
+        <li>Correct anything wrong</li>
+        <li>Delete your account</li>
+        <li>Explain anything on this page</li>
+      </ul>
+      <p>WhatsApp us on
+      <a href="https://wa.me/263782573320?text=Hello%20Murimi%20Market.%20I%20would%20like%20to%20ask%20about%20my%20personal%20information." target="_blank" rel="noopener">+263 78 257 3320</a>
+      and we will deal with it. You can also change your name, username and email yourself in
+      My account.</p>
+
+      <h2>Keeping it safe</h2>
+      <p>Passwords are stored scrambled. Wrong-password attempts are limited, so nobody can guess
+      their way in. Photos are checked before they are accepted. We check our own work with automated
+      tests before every change goes live.</p>
+      <p>No website can promise it will never be broken into. If something does happen to your
+      information, we will tell you and the authorities, as the law requires.</p>
+
+      <h2>Children</h2>
+      <p>Murimi Market is for people aged 18 and over. We do not knowingly keep information about
+      children. If you believe we have, tell us and we will remove it.</p>
+
+      <h2>Changes</h2>
+      <p>If we change what we collect or who sees it, we will update this page and change the date at
+      the top.</p>
+
+      <p class="legal-also">See also our <a href="/terms/">Terms of Use</a>.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div>
+        <p class="brand brand-footer"><span>Murimi <b>Market</b></span></p>
+        <p>Part of Murimi Intelligent Hub. Connecting Zimbabwe's farmers with buyers at fair prices.</p>
+        <p class="footer-legal"><a href="/terms/">Terms of Use</a> &middot; <a href="/privacy/">Privacy Notice</a></p>
+      </div>
+      <div>
+        <p>Questions? Chat to us on WhatsApp</p>
+        <a class="btn btn-whatsapp" href="https://wa.me/263782573320?text=Hello%20Murimi%20Market.%20I%20have%20a%20question%20about%20the%20marketplace." target="_blank" rel="noopener">+263 78 257 3320</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

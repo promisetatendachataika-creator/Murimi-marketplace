@@ -11,4 +11,6 @@ urlpatterns = [
     path("forgot/", views.account_page, {"mode": "forgot"}, name="forgot"),           # /forgot/
     path("account/", views.my_account, name="account"),                              # /account/
     path("listing/<int:listing_id>/", views.listing_page, name="listing"),            # /listing/101/
+    path("terms/", views.terms, name="terms"),                                        # /terms/
+    path("privacy/", views.privacy, name="privacy"),                                  # /privacy/
 ]

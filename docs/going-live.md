@@ -157,9 +157,20 @@ try restoring one once.
 ### Step E — Only when people ask
 
 - Real WhatsApp codes (Section 3).
-- A privacy policy. You're keeping people's names and phone numbers, so you need one,
-  and Zimbabwe's Data Protection Act applies. This is a lawyer question, not a code
-  question, but it's cheap to get a simple one.
+- **Legal: get the Terms and Privacy Notice checked.** The site now has `/terms/` and
+  `/privacy/`, written in plain English to match what the code really does. They are a
+  working draft, **not legal advice**, and a Zimbabwean lawyer should read them before
+  real farmers rely on them.
+  Zimbabwe's **Cyber and Data Protection Act [Chapter 12:07]** goes further than a page
+  on a website. Because you would be holding names and phone numbers for commercial
+  purposes, it appears to require:
+  - a **data controller licence from POTRAZ**, renewed every 12 months;
+  - an appointed, certified **Data Protection Officer**;
+  - telling POTRAZ about a data breach **within 24 hours**, and affected people within 72.
+
+  I am not a lawyer and this is not advice. Ask one what actually applies to a business
+  your size before you take real sign-ups, because it changes how you run the service,
+  not just what the website says.
 - Payments through Paynow (Section 1).
 - Two-step login for staff accounts.
 

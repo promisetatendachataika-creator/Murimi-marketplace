@@ -394,7 +394,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .topbar { gap: 10px; }
   .brand span { display: none; }
   .hero-word { font-size: 25vw; }
-  .btn-ghost-light { display: none; }
+  /* "Log in" and "My account" must stay reachable on a phone: they are the only way in.
+     Only "Log out" is dropped here, because My account carries its own Log out button. */
+  .topbar #logoutBtn, .topbar #accountLink { display: none; }
+  .topbar .btn-ghost-light { padding: 0 13px; min-height: 40px; font-size: 0.92rem; }
   .hero-search { grid-template-columns: 1fr; border-radius: 22px; }
   .filter-row .field { width: calc(50% - 9px); }
   .facts { grid-template-columns: 1fr 1fr; }
@@ -512,3 +515,7 @@ a.card-top { display: block; color: inherit; }
 /* Shown to staff, who can neither buy nor sell, so empty space isn't a mystery */
 .staff-note { margin-top: 14px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--ink-2); font-size: 0.92rem; max-width: 46em; }
 .staff-note[hidden] { display: none; }
+
+/* A one-line footer for pages that don't have the big one */
+.mini-footer { padding: 26px 0 34px; margin-top: 30px; border-top: 1px solid var(--line); font-size: 0.88rem; color: var(--ink-2); text-align: center; }
+.mini-footer a { color: inherit; }

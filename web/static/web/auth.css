@@ -154,3 +154,7 @@
   .role-pick { grid-template-columns: 1fr 1fr 1fr; }
   .role-pick span { padding: 8px 10px; }
 }
+
+/* "By creating an account you agree to..." above the sign-up button */
+.auth-agree { font-size: 0.86rem; color: var(--ink-2); line-height: 1.5; margin: 4px 0 2px; }
+.auth-agree a { color: var(--green); }

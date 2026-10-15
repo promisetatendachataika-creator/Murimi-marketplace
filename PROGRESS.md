@@ -246,4 +246,14 @@ Checked every endpoint for log-in, ownership, CSRF and limits; fixed what the re
 - `common.js` is now loaded on every page, so the words for each kind of account live in one place.
 - Tests: 124.
 
+## Found by testing on a phone (15 Oct 2026)
+Promise tried the site on his phone and found four things:
+- **No "Log in" button on a phone.** A rule in app.css hid every `.btn-ghost-light` below 560px, which took the Log in link with it, so a logged-out farmer on a phone had no way in at all. Now only "Log out" is hidden there (My account has its own), and Log in and My account always show.
+- **WhatsApp links opened an empty chat.** They now arrive with a message already typed, so the person just presses send and we know what they are asking about.
+- **No Terms of Use.** New page at `/terms/`: we introduce farmers and buyers and nothing more, we never hold money, what Murimi Verified does and doesn't mean, how to meet safely, the rules for listing and rating, and what we can do about accounts that break them.
+- **No Privacy Notice.** New page at `/privacy/`, written to match what the code really does: your phone number is not public until an offer is accepted, buyers see "Tendai M." not your full name, photos have their GPS location stripped, passwords can't be read by anyone including us.
+- Both are linked in the footer of every page, and sign-up now says what you are agreeing to.
+- **These legal pages are a draft, not legal advice.** See `docs/going-live.md`: Zimbabwe's Cyber and Data Protection Act also appears to require a POTRAZ licence and a Data Protection Officer.
+- Tests: 129, including one that fails if a WhatsApp link ever goes back to opening an empty chat.
+
 **Next:** photo storage (Cloudflare R2) when you're ready to put it online, or whatever you want built next.

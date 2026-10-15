@@ -59,3 +59,13 @@ def listing_page(request, listing_id):
     price in the page's title, so a link shared on WhatsApp shows a preview.
     """
     return render(request, "web/listing.html", {"listing_id": listing_id})
+
+
+def terms(request):
+    """/terms/ - the rules for using Murimi Market. Plain HTML, nothing to work out."""
+    return render(request, "web/terms.html")
+
+
+def privacy(request):
+    """/privacy/ - what we keep about people and who can see it."""
+    return render(request, "web/privacy.html")

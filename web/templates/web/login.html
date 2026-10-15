@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Urbanist:wght@400;500;600;700;800;900&display=swap">
   <link rel="stylesheet" href="{% asset 'web/app.css' %}">
   <link rel="stylesheet" href="{% asset 'web/auth.css' %}">
+  <link rel="stylesheet" href="{% asset 'web/legal.css' %}">
   <script src="{% asset 'web/theme-init.js' %}"></script>
 </head>
 <body class="auth-body" data-mode="{{ mode }}" data-next="{{ next }}">
@@ -94,6 +95,7 @@
             <small class="field-error" data-for="password"></small>
           </label>
           <p class="form-error" role="alert"></p>
+          <p class="auth-agree">By creating an account you agree to our <a href="/terms/" target="_blank">Terms of Use</a> and <a href="/privacy/" target="_blank">Privacy Notice</a>.</p>
           <button class="btn auth-btn" type="submit">Send me a WhatsApp code</button>
           <p class="auth-switch">Already have an account? <a href="/login/" data-go="login">Log in</a></p>
         </form>
@@ -146,7 +148,7 @@
           <button class="btn auth-btn" type="submit">Save new password</button>
         </form>
 
-        <p class="auth-help">Stuck? <a href="https://wa.me/263782573320" rel="noopener">WhatsApp us on +263 78 257 3320</a></p>
+        <p class="auth-help">Stuck? <a href="https://wa.me/263782573320?text=Hello%20Murimi%20Market.%20I%20need%20help%20with%20my%20account%20on%20the%20website." target="_blank" rel="noopener">WhatsApp us on +263 78 257 3320</a></p>
       </section>
 
       <!-- ================= Right: paper-cut art ================= -->

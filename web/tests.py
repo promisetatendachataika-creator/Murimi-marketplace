@@ -125,3 +125,37 @@ class RedirectTests(TestCase):
             html = self.client.get("/login/", {"next": bad}).content.decode()
             self.assertIn('data-next="/"', html, bad)
         self.assertIn('data-next="/account/"', self.client.get("/login/", {"next": "/account/"}).content.decode())
+
+
+class LegalPageTests(TestCase):
+    """Terms and privacy must exist, be reachable, and be linked from every page."""
+
+    def test_both_pages_load(self):
+        for url, heading in [("/terms/", "Terms of Use"), ("/privacy/", "Privacy Notice")]:
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 200, url)
+            self.assertContains(r, heading)
+
+    def test_every_page_links_to_them(self):
+        for url in ("/", "/account/", "/listing/1/", "/login/", "/terms/", "/privacy/"):
+            html = self.client.get(url).content.decode()
+            self.assertIn('href="/terms/"', html, url)
+            self.assertIn('href="/privacy/"', html, url)
+
+    def test_sign_up_says_what_you_are_agreeing_to(self):
+        html = self.client.get("/register/").content.decode()
+        self.assertIn("agree to our", html)
+
+    def test_privacy_is_honest_about_the_phone_number(self):
+        import re
+        # The page wraps lines, so squash all whitespace before looking for a phrase.
+        html = re.sub(r"\s+", " ", self.client.get("/privacy/").content.decode())
+        for promise in ["phone number is not public", "until you accept an offer",
+                        "cannot read your password", "do not sell your details"]:
+            self.assertIn(promise, html)
+
+    def test_whatsapp_links_arrive_with_a_message_ready(self):
+        for url in ("/", "/login/", "/terms/", "/privacy/"):
+            html = self.client.get(url).content.decode()
+            self.assertNotIn('href="https://wa.me/263782573320"', html, f"{url}: opens an empty chat")
+            self.assertIn("wa.me/263782573320?text=", html, url)
