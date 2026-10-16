@@ -36,7 +36,7 @@ for it; it adds real legal and support work.
 |---|---|---|---|
 | Hosting | **$0** (Render free) | **$7** Render Starter | Free one sleeps after 15 minutes |
 | Database | **$0** (Render free Postgres) | **$6** Render Postgres Basic | The free one is **deleted after 30 days** |
-| Photo storage | **$0** | **$0** Cloudflare R2 | Free up to 10 GB, no charge for people viewing |
+| Photo storage | **$0** | **$0.25** a 1 GB Render disk | About 5,000 photos. Without it they vanish on every deploy |
 | Domain name | **$0** (free .onrender.com address) | **$3/year** .co.zw | .com is about $18/year |
 | HTTPS padlock | **$0** | **$0** | Included by the host |
 | WhatsApp codes | **$0** (test mode) | **well under 1c** per code | You pay per message sent |
@@ -119,8 +119,7 @@ Goal: a real web address you can send to farmers on WhatsApp.
    DJANGO_ADMIN_PATH=<something only you know, not "admin">
    WHATSAPP_MODE=test
    ```
-5. Build command: `pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate && python manage.py createcachetable`
-6. Start command: `gunicorn config.wsgi` (add `gunicorn` to requirements.txt first).
+6. Build command: `./build.sh`   Start command: `gunicorn config.wsgi`
 7. **Change the staff password** before anyone else gets the address.
 
 What you'll notice: the free service **goes to sleep after 15 minutes** and takes about
@@ -136,17 +135,26 @@ for showing people, not for real use. Don't let a farmer put real listings in it
 4. Set up photo storage (next step) **before** real farmers upload anything.
 5. Once it's all working, raise `DJANGO_HSTS_SECONDS` from 3600 to 31536000 (a year).
 
-### Step C — Photos must not vanish (free)
+### Step C — Photos must not vanish ($0.25 a month)
 
-This one matters and is easy to miss. On Render, Railway and Fly, **the disk is wiped
-every time you deploy**. Farmers' photos would disappear without warning.
+This one matters and is easy to miss. On Render, Railway and Fly, **the ordinary disk is
+wiped every time you deploy**. Farmers' photos would disappear without warning.
 
-Use **Cloudflare R2**: free up to **10 GB** of storage, and **free for people viewing
-them**, which is the part that usually costs money elsewhere. Our photos are re-saved
-at 1600px, so 10 GB is roughly 50,000 of them. Above that it's $0.015 per GB a month.
+The simplest fix is a **Render Disk**: $0.25 per GB a month. Add one of **1 GB**, mount it
+at `/var/data`, and set `DJANGO_MEDIA_ROOT=/var/data/media`. Our photos are re-saved at
+1600px, roughly 200 KB each, so 1 GB holds about **5,000 photos**.
 
-It needs `django-storages` and `boto3` added, and a few settings. Ask me and I'll do it
-in about an hour. **Do this before Step B, not after.**
+The code is already set up for this: `MEDIA_ROOT` reads `DJANGO_MEDIA_ROOT`, and Django
+serves the photos itself (WhiteNoise only handles our own CSS and JavaScript). Tested
+under gunicorn with DEBUG off.
+
+Two things a disk changes: the service can only run as **one instance** (no scaling to
+several), and deploys are no longer zero-downtime. Both are fine at this size.
+
+**When you outgrow it** — thousands of photos, or the site slowing down because Django is
+serving them — move to **Cloudflare R2**: free up to 10 GB, and free for people viewing
+them, which is the part that usually costs money. That needs `django-storages` and
+`boto3` and about an hour. Not now.
 
 ### Step D — Backups (free, and do not skip)
 
@@ -184,7 +192,10 @@ try restoring one once.
 - The staff page can be moved off `/admin/` with `DJANGO_ADMIN_PATH`.
 - PostgreSQL switches on by setting `POSTGRES_DB` and friends.
 - `collectstatic` and WhiteNoise are set up, so CSS and JavaScript are served properly
-  with no second web server.
+  with no second web server. `gunicorn` is in requirements.txt and `build.sh` runs the
+  four commands a deploy needs.
+- Farmers' photos survive a deploy when `DJANGO_MEDIA_ROOT` points at a hosting disk,
+  and Django serves them whether DEBUG is on or off.
 - Rate-limit counts move to a shared database table with `DJANGO_CACHE_TABLE`, so
   several server processes share one count instead of one each.
 - `python manage.py check --deploy` is clean apart from two optional HSTS extras
@@ -192,8 +203,6 @@ try restoring one once.
 
 ## 6. What is NOT done
 
-- **Photo storage** (Step C). The most important gap.
-- **No `gunicorn` in requirements.txt yet** — needed by every host above.
 - **Staff accounts have no two-step login.**
 - **The sample password `murimi-staff-2026` is in the code history.** Change it.
 - **Sample data** (`seed_demo`, `seed_market`, `seed_orders`) must not be run on the

@@ -266,4 +266,14 @@ Promise's idea: a farmer choosing **Other** should be able to type what it is, a
 - **Bug this uncovered:** `api.js` sends a fixed list of form fields, and `other_product` wasn't in it, so nothing the farmer typed ever reached the server. The Django tests all passed because they post straight to the API. There is now a test that reads the Sell form and fails if the page collects a field it never sends.
 - Tests: 137.
 
-**Next:** photo storage (Cloudflare R2) when you're ready to put it online, or whatever you want built next.
+## Ready to deploy (16 Oct 2026)
+- **Map bug** found by Promise: clicking a province pin kept the crop filter on, so the pin said "4" and you got an empty page. A pin counts EVERY listing in its province, so clicking one now clears the filters that hide things (sort is kept) and says so in a message.
+- **Staff could not see what they were approving:** the listings screen in the back office showed no photo and no description. It now shows the first photo as a thumbnail (click for full size) and the farmer's own words, prefetched so the page is still one query. Listings with no photo say so.
+- **Deployment prepared:**
+  - `gunicorn` added to requirements.
+  - **`build.sh`** - the four commands a deploy runs (install, collectstatic, migrate, createcachetable), with a warning never to run the seed commands on a real server.
+  - **`DJANGO_MEDIA_ROOT`**: farmers' photos go on a hosting disk that survives a deploy. Without this they are wiped every time you deploy. A 1 GB Render disk is $0.25 a month and holds about 5,000 photos.
+  - Django now serves uploaded photos whether DEBUG is on or off (WhiteNoise only handles our own files). Tested under gunicorn with DEBUG off: pages, CSS, favicon, API and a farmer's photo all load, and requests for files outside the photo folder are refused.
+- `docs/going-live.md` corrected: a hosting disk is simpler and cheaper than Cloudflare R2 at this size. R2 is the move once there are thousands of photos.
+
+**Next:** push to GitHub, then deploy (Cloudflare R2) when you're ready to put it online, or whatever you want built next.

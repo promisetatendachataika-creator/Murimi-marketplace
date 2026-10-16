@@ -220,7 +220,11 @@ STORAGES = {
 # Uploaded files (listing photos). On the laptop Django serves them; when we go live,
 # the web server or a storage service does.
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# Farmers' photos. On the laptop they sit in the project folder. On a real server the
+# folder is WIPED on every deploy, so DJANGO_MEDIA_ROOT must point at a disk that survives
+# (on Render: add a Disk, mount it at /var/data, and set DJANGO_MEDIA_ROOT=/var/data/media).
+# Get this wrong and every farmer's photos disappear the next time you deploy.
+MEDIA_ROOT = os.environ.get("DJANGO_MEDIA_ROOT") or (BASE_DIR / "media")
 DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024     # a form with photos may be up to ~12 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
