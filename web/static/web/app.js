@@ -217,8 +217,20 @@
       b.innerHTML = `<span class="pin-n">${n}</span><span class="pin-name">${esc(prov)}</span>`;
       b.setAttribute("aria-label", `${prov}: ${n} listing${n === 1 ? "" : "s"}. Show them.`);
       b.addEventListener("click", () => {
-        state.province = state.province === prov ? "" : prov;
+        const turningOff = state.province === prov;
+        /* The number on a pin counts EVERY open listing in that province, so clicking it
+           has to show exactly that. Leaving a crop filter on would give "Maize in Harare"
+           while the pin promised 5 of everything, and often an empty page. Sort is kept:
+           it changes the order, not what you see. */
+        const hadFilters = state.crop || state.max_price || state.ready || state.sell_today;
+        Object.assign(state, { crop: "", max_price: "", ready: "", sell_today: false });
+        state.province = turningOff ? "" : prov;
         sync();
+        if (!turningOff) {
+          toast(hadFilters
+            ? `Showing all ${n} listing${n === 1 ? "" : "s"} in ${prov}. Your other filters were cleared.`
+            : `Showing ${n} listing${n === 1 ? "" : "s"} in ${prov}.`);
+        }
         $("#browse").scrollIntoView({ behavior: "smooth" });
       });
       frame.appendChild(b);

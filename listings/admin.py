@@ -21,8 +21,8 @@ class PhotoInline(admin.TabularInline):
 class ListingAdmin(admin.ModelAdmin):
     """Staff moderation: find listings, hide bad ones, put them back."""
 
-    list_display = ["id", "product", "variety", "farmer", "province", "price_usd", "quantity_left", "quantity",
-                    "status", "open_reports", "available_from", "created_at"]
+    list_display = ["id", "photo", "product", "variety", "farmer", "province", "price_usd", "quantity_left",
+                    "status", "open_reports", "told_us", "created_at"]
     list_filter = ["status", "crop", "province", "sell_today", "farmer__is_verified_farmer"]
     search_fields = ["crop", "variety", "district", "description", "farmer__name", "farmer__phone"]
     list_select_related = ["farmer"]
@@ -37,7 +37,24 @@ class ListingAdmin(admin.ModelAdmin):
         return format_html('{} <b>{}</b>', "NEW:", obj.other_product) if obj.other_product else obj.crop
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_open_reports=Count("reports", filter=Q(reports__status="open")))
+        """Photos come along too, so the list can show them without a query per row."""
+        return (super().get_queryset(request)
+                .annotate(_open_reports=Count("reports", filter=Q(reports__status="open")))
+                .prefetch_related("photos"))
+
+    @admin.display(description="Photo")
+    def photo(self, obj):
+        """You can't judge produce you can't see, so the first photo is in the list itself."""
+        first = obj.photos.all()[:1]
+        if not first:
+            return format_html('<span style="color:#b4561f">no photo</span>')
+        return format_html('<a href="{}" target="_blank"><img src="{}" style="height:46px;width:62px;'
+                           'object-fit:cover;border-radius:5px"></a>', first[0].image.url, first[0].image.url)
+
+    @admin.display(description="What the farmer says")
+    def told_us(self, obj):
+        text = obj.description or ""
+        return format_html('<span title="{}">{}</span>', text, (text[:60] + "...") if len(text) > 60 else text or "-")
 
     @admin.display(description="Reports", ordering="_open_reports")
     def open_reports(self, obj):
