@@ -10,8 +10,6 @@ until an offer is accepted.
 
 Built with Django 5.2 and plain HTML, CSS and JavaScript. No front-end framework.
 
----
-
 ## Run it on this laptop
 
 Double-click **`start-windows.bat`**, or in PowerShell:
@@ -49,8 +47,6 @@ going live.** See `docs/going-live.md`.
 122 tests covering accounts, listings, prices, offers and orders, buyer requests,
 staff tools, security and the pages.
 
----
-
 ## How the code is laid out
 
 One Django app per job, each with its own models, JSON endpoints, admin and tests:
@@ -82,12 +78,10 @@ The browser talks to the server only through `/api/...`, and only through one fi
 - **Nothing is trusted from the browser.** Every rule is checked again on the server.
 - **The app never touches anyone's money.** People arrange payment themselves.
 
----
-
 ## Other reading
 
-- **`PROGRESS.md`** — what was built, in order, and why. Start here.
-- **`docs/going-live.md`** — what hosting, a domain and WhatsApp cost, and the order to
+- **`PROGRESS.md`**: what was built, in order, and why. Start here.
+- **`docs/going-live.md`**: what hosting, a domain and WhatsApp cost, and the order to
   do things.
 
 ## Not in this repository
@@ -95,4 +89,3 @@ The browser talks to the server only through `/api/...`, and only through one fi
 `.env` (secrets), `db.sqlite3` (the database), `media/` (uploaded photos), `.venv/` and
 `backups/` are all deliberately left out. `start-windows.bat` recreates everything you
 need.
-"# Murimi-marketplace" 
