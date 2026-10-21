@@ -95,3 +95,4 @@ The browser talks to the server only through `/api/...`, and only through one fi
 `.env` (secrets), `db.sqlite3` (the database), `media/` (uploaded photos), `.venv/` and
 `backups/` are all deliberately left out. `start-windows.bat` recreates everything you
 need.
+"# Murimi-marketplace" 
